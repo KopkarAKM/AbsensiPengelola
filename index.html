@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Laporan Absensi</title>
+    <title>Dashboard Absensi Karyawan</title>
     <!-- Memuat Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Memuat Chart.js untuk grafik -->
@@ -13,9 +13,9 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6; /* bg-gray-100 */
+            box-sizing: border-box;
         }
-        /* Custom scrollbar (optional, but nice) */
+        /* Custom scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
@@ -27,15 +27,35 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #94a3b8; /* slate-400 */
         }
-        .kpi-card {
-            transition: all 0.3s ease;
+        
+        /* Gaya dari Model Baru */
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
-        .kpi-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .heatmap-cell {
+            width: 25px;
+            height: 25px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.2);
+            z-index: 10;
         }
         
-        /* Gaya untuk status loading */
+        /* Status untuk Heatmap (disesuaikan dengan data GAS) */
+        .status-hadir { background-color: #10b981; } /* Hijau - Tepat Waktu */
+        .status-telat { background-color: #f59e0b; } /* Kuning - Terlambat */
+        .status-absen { background-color: #ef4444; } /* Merah - Absen */
+        .status-kosong { background-color: #e5e7eb; } /* Abu-abu - Tidak ada data */
+
+        /* Gaya untuk status loading (dari kode lama) */
         #loadingOverlay {
             position: fixed;
             top: 0;
@@ -52,23 +72,23 @@
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-full">
 
     <!-- Tambahkan overlay loading -->
     <div id="loadingOverlay">
         <p>Memuat data dashboard...</p>
     </div>
 
-    <div class="container mx-auto p-4 md:p-8">
+    <div class="container mx-auto px-6 py-8">
         
-        <!-- Judul Dashboard -->
-        <header class="mb-6">
-            <h1 class="text-3xl font-bold text-gray-900">Dashboard Laporan Absensi</h1>
-            <p class="text-gray-600">Ringkasan kepatuhan dan tren kehadiran karyawan.</p>
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Dashboard Absensi Karyawan</h1>
+            <p class="text-gray-600" id="dashboard-subtitle">Ringkasan kepatuhan dan tren kehadiran karyawan.</p>
         </header>
 
-        <!-- Filter Kontrol -->
-        <div class="mb-6 p-4 bg-white rounded-lg shadow-md">
+        <!-- Filter Kontrol (Diambil dari kode lama, di-styling sedikit) -->
+        <div class="mb-8 p-6 bg-white rounded-xl shadow-lg">
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <!-- Filter Tanggal Mulai -->
                 <div>
@@ -102,88 +122,126 @@
             </div>
         </div>
 
-        <!-- KPI Utama -->
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-            <div class="kpi-card bg-white p-5 rounded-lg shadow-md text-center">
-                <h3 class="text-sm font-medium text-gray-500 uppercase">Tingkat Kehadiran</h3>
-                <p id="kpi-tingkat-kehadiran" class="text-3xl font-bold text-blue-600 mt-2">0%</p>
-            </div>
-            <div class="kpi-card bg-white p-5 rounded-lg shadow-md text-center">
-                <h3 class="text-sm font-medium text-gray-500 uppercase">Total Hadir (Filter)</h3>
-                <p id="kpi-total-hadir" class="text-3xl font-bold text-green-600 mt-2">0</p>
-            </div>
-            <div class="kpi-card bg-white p-5 rounded-lg shadow-md text-center">
-                <h3 class="text-sm font-medium text-gray-500 uppercase">Total Absen (Filter)</h3>
-                <p id="kpi-total-absen" class="text-3xl font-bold text-red-600 mt-2">0</p>
-            </div>
-            <div class="kpi-card bg-white p-5 rounded-lg shadow-md text-center">
-                <h3 class="text-sm font-medium text-gray-500 uppercase">Total Terlambat (Filter)</h3>
-                <p id="kpi-total-terlambat" class="text-3xl font-bold text-yellow-600 mt-2">0</p>
-            </div>
-            <div class="kpi-card bg-white p-5 rounded-lg shadow-md text-center">
-                <h3 class="text-sm font-medium text-gray-500 uppercase">Rata-Rata Jam Masuk</h3>
-                <p id="kpi-avg-jam-masuk" class="text-3xl font-bold text-indigo-600 mt-2">--:--</p>
-            </div>
-        </div>
-
-        <!-- Konten Dashboard (Grafik dan Tabel) -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
-            <!-- Kolom Kiri (Grafik) -->
-            <div class="lg:col-span-2 space-y-6">
-                <!-- Grafik Tren Kehadiran -->
-                <div class="bg-white p-5 rounded-lg shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Tren Kehadiran vs Absen (7 Hari Terakhir)</h2>
-                    <canvas id="trenChart"></canvas>
+        <!-- Papan Skor Utama -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">📊 Papan Skor Utama (Sesuai Filter)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Tingkat Kehadiran</p>
+                            <p class="text-3xl font-bold" id="kpi-tingkat-kehadiran">0%</p>
+                        </div>
+                        <div class="text-4xl">🎯</div>
+                    </div>
                 </div>
                 
-                <!-- Grafik Kepatuhan Departemen -->
-                <div class="bg-white p-5 rounded-lg shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Tingkat Kepatuhan per Departemen</h2>
-                    <canvas id="deptChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Kolom Kanan (Tabel Real-time) -->
-            <div class="lg:col-span-1 space-y-6">
-                <!-- Daftar Absen Hari Ini -->
-                <div class="bg-white p-5 rounded-lg shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Absen Hari Ini</h2>
-                    <div id="table-absen-hari-ini" class="max-h-64 overflow-y-auto">
-                        <!-- Tabel akan di-render oleh JS -->
+                <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Total Keterlambatan</p>
+                            <p class="text-3xl font-bold" id="kpi-total-terlambat">0</p>
+                        </div>
+                        <div class="text-4xl">⏰</div>
                     </div>
                 </div>
-
-                <!-- Daftar Terlambat Hari Ini -->
-                <div class="bg-white p-5 rounded-lg shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Terlambat Hari Ini</h2>
-                    <div id="table-terlambat-hari-ini" class="max-h-64 overflow-y-auto">
-                        <!-- Tabel akan di-render oleh JS -->
+                
+                <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Total Absen</p>
+                            <p class="text-3xl font-bold" id="kpi-total-absen">0</p>
+                        </div>
+                        <div class="text-4xl">📋</div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Analisis Performa Individu (Baris Baru) -->
-            <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Tabel Karyawan Sering Terlambat -->
-                <div class="bg-white p-5 rounded-lg shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Karyawan Paling Sering Terlambat</h2>
-                    <div id="table-top-terlambat" class="max-h-80 overflow-y-auto">
-                        <!-- Tabel akan di-render oleh JS -->
-                    </div>
-                </div>
-
-                <!-- Tabel Karyawan Sering Absen -->
-                <div class="bg-white p-5 rounded-lg shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Karyawan Paling Sering Absen</h2>
-                    <div id="table-top-absen" class="max-h-80 overflow-y-auto">
-                        <!-- Tabel akan di-render oleh JS -->
+                
+                <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Karyawan Paling Rawan</p>
+                            <p class="text-xl font-bold" id="kpi-karyawan-rawan">-</p>
+                        </div>
+                        <div class="text-4xl">⚠️</div>
                     </div>
                 </div>
             </div>
+        </section>
 
-        </div> <!-- end grid konten -->
-    </div> <!-- end container -->
+        <!-- Grafik Tren -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">📈 Grafik Tren (Sesuai Filter)</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Grafik Batang Keterlambatan -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Keterlambatan Harian</h3>
+                    <canvas id="chartKeterlambatan" width="400" height="200"></canvas>
+                </div>
+                
+                <!-- Grafik Donat Komposisi -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Komposisi Kehadiran</h3>
+                    <canvas id="chartKomposisi" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Daftar Aksi -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">🎯 Daftar Aksi Prioritas (Sesuai Filter)</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Top 5 Keterlambatan -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <span class="text-yellow-500 mr-2">⏰</span>
+                        Top 5 Keterlambatan
+                    </h3>
+                    <div class="space-y-3" id="top-keterlambatan">
+                        <p class="text-gray-500 text-center py-4">Tidak ada data.</p>
+                    </div>
+                </div>
+                
+                <!-- Top 5 Absensi -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <span class="text-red-500 mr-2">📋</span>
+                        Top 5 Absensi
+                    </h3>
+                    <div class="space-y-3" id="top-absensi">
+                        <p class="text-gray-500 text-center py-4">Tidak ada data.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Peta Panas Kinerja -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">🔥 Peta Panas Kinerja (Sesuai Filter)</h2>
+            <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
+                <div class="mb-4 flex flex-wrap gap-4 text-sm">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-hadir rounded mr-2"></div>
+                        <span>Hadir Tepat Waktu</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-telat rounded mr-2"></div>
+                        <span>Terlambat</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-absen rounded mr-2"></div>
+                        <span>Absen</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-kosong rounded mr-2"></div>
+                        <span>Tidak Ada Data</span>
+                    </div>
+                </div>
+                <div id="heatmap-container">
+                    <p class="text-gray-500 text-center py-4">Terapkan filter untuk melihat Peta Panas.</p>
+                </div>
+            </div>
+        </section>
+    </div>
 
     <script>
         // --- PENGATURAN KONEKSI GAS ---
@@ -197,125 +255,234 @@
         const today = new Date();
         const todayISO = formatISODate(today);
 
-
-        // Variabel global untuk Chart
-        let trenChartInstance = null;
-        let deptChartInstance = null;
+        // --- Variabel global untuk Chart ---
+        let keterlambatanChartInstance = null;
+        let komposisiChartInstance = null;
         
         // --- Fungsi Helper ---
-
         function formatISODate(date) {
             return date.toISOString().split('T')[0];
         }
 
-        // --- Fungsi Rendering ---
-
-        // Fungsi untuk merender tabel
-        function renderTable(elementId, data, columns) {
-            const container = document.getElementById(elementId);
-            if (!data || data.length === 0) {
-                container.innerHTML = `<p class="text-gray-500 text-center py-4">Tidak ada data.</p>`;
-                return;
+        // Helper untuk mendapatkan rentang tanggal
+        function getDatesInRange(startDate, endDate) {
+            const dates = [];
+            let currentDate = new Date(startDate);
+            const end = new Date(endDate);
+            
+            while (currentDate <= end) {
+                dates.push(formatISODate(new Date(currentDate)));
+                currentDate.setDate(currentDate.getDate() + 1);
             }
-
-            let tableHTML = `<table class="w-full text-sm text-left text-gray-700">`;
-            tableHTML += `<thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr>`;
-            columns.forEach(col => {
-                tableHTML += `<th scope="col" class="px-4 py-3">${col.header}</th>`;
-            });
-            tableHTML += `</tr></thead><tbody>`;
-
-            data.forEach(item => {
-                tableHTML += `<tr class="bg-white border-b hover:bg-gray-50">`;
-                columns.forEach(col => {
-                    tableHTML += `<td class="px-4 py-3">${item[col.key] || 'N/A'}</td>`;
-                });
-                tableHTML += `</tr>`;
-            });
-
-            tableHTML += `</tbody></table>`;
-            container.innerHTML = tableHTML;
+            return dates;
         }
 
-        // Fungsi untuk merender Grafik Tren
-        function renderTrenChart(labels, dataHadir, dataAbsen) {
-            const ctx = document.getElementById('trenChart').getContext('2d');
-            if (trenChartInstance) {
-                trenChartInstance.destroy();
+        // --- Fungsi Rendering BARU ---
+
+        // Fungsi untuk merender Grafik Keterlambatan Harian (BAR)
+        function renderGrafikKeterlambatan(filteredData) {
+            const dailyLate = {};
+            filteredData.forEach(item => {
+                if (item.keterangan && (item.keterangan.includes('Terlambat') || item.keterangan.includes('TELAT'))) {
+                    dailyLate[item.tanggal] = (dailyLate[item.tanggal] || 0) + 1;
+                }
+            });
+
+            // Urutkan berdasarkan tanggal
+            const sortedLabels = Object.keys(dailyLate).sort();
+            const sortedData = sortedLabels.map(label => dailyLate[label]);
+
+            const ctx = document.getElementById('chartKeterlambatan').getContext('2d');
+            if (keterlambatanChartInstance) {
+                keterlambatanChartInstance.destroy();
             }
-            trenChartInstance = new Chart(ctx, {
-                type: 'line',
+            keterlambatanChartInstance = new Chart(ctx, {
+                type: 'bar',
                 data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Hadir',
-                            data: dataHadir,
-                            borderColor: 'rgb(34, 197, 94)', // green-500
-                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-                            fill: true,
-                            tension: 0.3
-                        },
-                        {
-                            label: 'Absen',
-                            data: dataAbsen,
-                            borderColor: 'rgb(239, 68, 68)', // red-500
-                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                            fill: true,
-                            tension: 0.3
-                        }
-                    ]
+                    labels: sortedLabels,
+                    datasets: [{
+                        label: 'Jumlah Keterlambatan',
+                        data: sortedData,
+                        backgroundColor: 'rgba(245, 158, 11, 0.8)',
+                        borderColor: 'rgba(245, 158, 11, 1)',
+                        borderWidth: 1
+                    }]
                 },
                 options: {
                     responsive: true,
                     scales: {
                         y: {
-                            beginAtZero: true
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
                         }
                     }
                 }
             });
         }
 
-        // Fungsi untuk merender Grafik Departemen
-        function renderDeptChart(labels, data) {
-            const ctx = document.getElementById('deptChart').getContext('2d');
-            if (deptChartInstance) {
-                deptChartInstance.destroy();
+        // Fungsi untuk merender Grafik Komposisi (DOUGHNUT)
+        function renderGrafikKomposisi(filteredData) {
+            let tepatWaktu = 0;
+            let terlambat = 0;
+            let absen = 0;
+
+            filteredData.forEach(item => {
+                if (item.status === 'Absen') {
+                    absen++;
+                } else if (item.status === 'Hadir') {
+                    if (item.keterangan && (item.keterangan.includes('Terlambat') || item.keterangan.includes('TELAT'))) {
+                        terlambat++;
+                    } else {
+                        tepatWaktu++;
+                    }
+                }
+            });
+
+            const ctx = document.getElementById('chartKomposisi').getContext('2d');
+            if (komposisiChartInstance) {
+                komposisiChartInstance.destroy();
             }
-            deptChartInstance = new Chart(ctx, {
-                type: 'bar',
+            komposisiChartInstance = new Chart(ctx, {
+                type: 'doughnut',
                 data: {
-                    labels: labels,
+                    labels: ['Tepat Waktu', 'Terlambat', 'Absen'],
                     datasets: [{
-                        label: 'Tingkat Kepatuhan (%)',
-                        data: data,
+                        data: [tepatWaktu, terlambat, absen],
                         backgroundColor: [
-                            'rgba(59, 130, 246, 0.7)',
-                            'rgba(16, 185, 129, 0.7)',
-                            'rgba(234, 179, 8, 0.7)',
-                            'rgba(249, 115, 22, 0.7)',
+                            'rgba(16, 185, 129, 0.8)',  // Hijau
+                            'rgba(245, 158, 11, 0.8)',  // Kuning
+                            'rgba(239, 68, 68, 0.8)'    // Merah
                         ],
+                        borderWidth: 2
                     }]
                 },
                 options: {
                     responsive: true,
-                    indexAxis: 'y', // Membuatnya jadi horizontal bar chart
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            max: 100
-                        }
-                    },
                     plugins: {
                         legend: {
-                            display: false
+                            position: 'bottom'
                         }
                     }
                 }
             });
         }
+
+        // Fungsi untuk merender Daftar Top 5 (BARU)
+        function renderTopList(elementId, data, colorClass) {
+            const container = document.getElementById(elementId);
+            container.innerHTML = ''; // Kosongkan
+
+            if (!data || data.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 text-center py-4">Tidak ada data.</p>`;
+                return;
+            }
+
+            const bgClass = colorClass === 'yellow' ? 'bg-yellow-50' : 'bg-red-50';
+            const textClass = colorClass === 'yellow' ? 'text-yellow-600' : 'text-red-600';
+            const iconBgClass = colorClass === 'yellow' ? 'bg-yellow-500' : 'bg-red-500';
+
+            data.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = `flex justify-between items-center p-3 ${bgClass} rounded-lg`;
+                div.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 ${iconBgClass} text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
+                        <span class="font-medium">${item.nama}</span>
+                    </div>
+                    <span class="${textClass} font-bold">${item.jumlah}x</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Fungsi untuk merender Heatmap (BARU)
+        function renderHeatmap(filteredData, karyawanList, startDate, endDate) {
+            const container = document.getElementById('heatmap-container');
+            container.innerHTML = ''; // Kosongkan
+
+            const dates = getDatesInRange(startDate, endDate);
+            if (dates.length === 0 || karyawanList.length === 0) {
+                container.innerHTML = `<p class="text-gray-500 text-center py-4">Data tidak cukup untuk Peta Panas.</p>`;
+                return;
+            }
+            
+            // Buat Peta (Map) untuk pencarian cepat
+            const dataMap = new Map();
+            filteredData.forEach(item => {
+                const key = item.nama + '_' + item.tanggal;
+                let statusClass = 'status-kosong';
+                if (item.status === 'Absen') {
+                    statusClass = 'status-absen';
+                } else if (item.status === 'Hadir') {
+                    statusClass = (item.keterangan && (item.keterangan.includes('Terlambat') || item.keterangan.includes('TELAT'))) ? 'status-telat' : 'status-hadir';
+                }
+                dataMap.set(key, { class: statusClass, title: `${item.nama} - ${item.tanggal}: ${item.keterangan || item.status}` });
+            });
+
+
+            const table = document.createElement('table');
+            table.className = 'w-full';
+
+            // Header tanggal
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = '<th class="text-left p-2 font-medium text-gray-700 min-w-32 sticky left-0 bg-white z-10">Karyawan</th>';
+            dates.forEach(date => {
+                const th = document.createElement('th');
+                th.className = 'text-center p-1 text-xs text-gray-600';
+                th.textContent = date.substring(8); // Hanya tampilkan tanggal
+                headerRow.appendChild(th);
+            });
+            table.appendChild(headerRow);
+
+            // Baris karyawan
+            karyawanList.forEach(k => {
+                const row = document.createElement('tr');
+                row.className = 'border-t';
+                
+                const nameCell = document.createElement('td');
+                nameCell.className = 'p-2 font-medium text-gray-800 sticky left-0 bg-white z-10';
+                nameCell.textContent = k.nama;
+                row.appendChild(nameCell);
+
+                dates.forEach(date => {
+                    const cell = document.createElement('td');
+                    cell.className = 'p-1 text-center';
+                    
+                    const statusDiv = document.createElement('div');
+                    statusDiv.className = 'heatmap-cell mx-auto';
+
+                    const key = k.nama + '_' + date;
+                    const data = dataMap.get(key);
+                    
+                    if (data) {
+                        statusDiv.classList.add(data.class);
+                        statusDiv.title = data.title;
+                    } else {
+                        // Cek apakah hari kerja (jika data tidak ada, mungkin hari libur)
+                        const dayOfWeek = new Date(date + 'T00:00:00').getDay();
+                        if (dayOfWeek === 0 || dayOfWeek === 6) {
+                             statusDiv.classList.add('status-kosong');
+                             statusDiv.title = `${k.nama} - ${date}: Hari Libur`;
+                        } else {
+                            // Jika hari kerja tapi tidak ada di map (misal, di luar 30 hari GAS)
+                             statusDiv.classList.add('status-kosong');
+                             statusDiv.title = `${k.nama} - ${date}: Tidak Ada Data`;
+                        }
+                    }
+                    
+                    cell.appendChild(statusDiv);
+                    row.appendChild(cell);
+                });
+                
+                table.appendChild(row);
+            });
+
+            container.appendChild(table);
+        }
         
+
         // Fungsi utama untuk update dashboard
         function updateDashboard() {
             // 1. Dapatkan nilai filter
@@ -323,6 +490,9 @@
             const endDate = document.getElementById('endDate').value;
             const departemen = document.getElementById('filterDepartemen').value;
             const karyawan = document.getElementById('filterKaryawan').value;
+            
+            document.getElementById('dashboard-subtitle').textContent = `Menampilkan data dari ${startDate} s/d ${endDate}`;
+
 
             // 2. Filter data utama (dari data global)
             let filteredData = allLaporanData.filter(item => {
@@ -332,115 +502,64 @@
                 const isKaryawanMatch = (karyawan === 'Semua' || item.nama === karyawan);
                 return isDateInRange && isDeptMatch && isKaryawanMatch;
             });
+            
+            // Filter karyawan list berdasarkan filter departemen
+            let filteredKaryawanList = allKaryawanList;
+            if (departemen !== 'Semua') {
+                filteredKaryawanList = allKaryawanList.filter(k => k.departemen === departemen);
+            }
+            if (karyawan !== 'Semua') {
+                filteredKaryawanList = allKaryawanList.filter(k => k.nama === karyawan);
+            }
+
 
             // 3. Update KPI
             const totalHadir = filteredData.filter(d => d.status === 'Hadir').length;
             const totalAbsen = filteredData.filter(d => d.status === 'Absen').length;
             const totalTerlambat = filteredData.filter(d => d.keterangan && (d.keterangan.includes('Terlambat') || d.keterangan.includes('TELAT'))).length;
-            
-            // Perbaiki totalRecords agar berdasarkan karyawan unik x rentang hari (jika perlu)
-            // Untuk kesederhanaan, kita gunakan total data terfilter
             const totalRecords = filteredData.length; 
-            
             const tingkatKehadiran = totalRecords > 0 ? ((totalHadir / totalRecords) * 100).toFixed(1) : 0;
-            
-            let totalMenitMasuk = 0;
-            let countMasuk = 0;
-            filteredData.filter(d => d.jamMasuk).forEach(d => {
-                const parts = String(d.jamMasuk).split(':');
-                if (parts.length >= 2) {
-                    totalMenitMasuk += (parseInt(parts[0]) * 60) + parseInt(parts[1]);
-                    countMasuk++;
-                }
-            });
-            let avgJamMasuk = '--:--';
-            if (countMasuk > 0) {
-                const avgMenit = totalMenitMasuk / countMasuk;
-                const avgJam = Math.floor(avgMenit / 60);
-                const avgMin = Math.round(avgMenit % 60);
-                avgJamMasuk = `${String(avgJam).padStart(2, '0')}:${String(avgMin).padStart(2, '0')}`;
-            }
 
             document.getElementById('kpi-tingkat-kehadiran').textContent = `${tingkatKehadiran}%`;
-            document.getElementById('kpi-total-hadir').textContent = totalHadir;
-            document.getElementById('kpi-total-absen').textContent = totalAbsen;
             document.getElementById('kpi-total-terlambat').textContent = totalTerlambat;
-            document.getElementById('kpi-avg-jam-masuk').textContent = avgJamMasuk;
+            document.getElementById('kpi-total-absen').textContent = totalAbsen;
 
-
-            // 4. Update Visualisasi Harian (Real-time, tidak terpengaruh filter tanggal)
-            const dataHariIni = allLaporanData.filter(d => d.tanggal === todayISO);
-            
-            const absenHariIni = dataHariIni.filter(d => d.status === 'Absen');
-            renderTable('table-absen-hari-ini', absenHariIni, [
-                { header: 'Nama', key: 'nama' },
-                { header: 'Departemen', key: 'departemen' }
-            ]);
-
-            const terlambatHariIni = dataHariIni.filter(d => d.keterangan && (d.keterangan.includes('Terlambat') || d.keterangan.includes('TELAT')));
-            renderTable('table-terlambat-hari-ini', terlambatHariIni, [
-                { header: 'Nama', key: 'nama' },
-                { header: 'Jam Masuk', key: 'jamMasuk' }
-            ]);
-            
-
-            // 5. Update Grafik Tren (7 Hari Terakhir)
-            const trenData = {};
-            for (let i = 6; i >= 0; i--) {
-                let d = new Date(today);
-                d.setDate(d.getDate() - i);
-                let tglISO = formatISODate(d);
-                
-                const dataPerHari = allLaporanData.filter(item => item.tanggal === tglISO);
-                trenData[tglISO] = {
-                    hadir: dataPerHari.filter(item => item.status === 'Hadir').length,
-                    absen: dataPerHari.filter(item => item.status === 'Absen').length
-                };
-            }
-            const trenLabels = Object.keys(trenData);
-            const dataHadir = trenLabels.map(tgl => trenData[tgl].hadir);
-            const dataAbsen = trenLabels.map(tgl => trenData[tgl].absen);
-            renderTrenChart(trenLabels, dataHadir, dataAbsen);
-
-            
-            // 6. Update Grafik Departemen (berdasarkan filter)
-            const deptData = {};
-            allDepartemenList.forEach(dept => {
-                const dataPerDept = filteredData.filter(d => d.departemen === dept);
-                const hadir = dataPerDept.filter(d => d.status === 'Hadir').length;
-                const total = dataPerDept.length;
-                deptData[dept] = total > 0 ? ((hadir / total) * 100).toFixed(1) : 0;
-            });
-            renderDeptChart(Object.keys(deptData), Object.values(deptData));
-            
-
-            // 7. Update Analisis Performa Individu (berdasarkan filter)
+            // Hitung karyawan paling rawan (dari data terfilter)
             const performa = {};
-            allKaryawanList.forEach(k => performa[k.nama] = { nama: k.nama, departemen: k.departemen, terlambat: 0, absen: 0 });
-
             filteredData.forEach(item => {
-                if(!performa[item.nama]) return; // Jaga-jaga jika data laporan tidak sinkron
-                if (item.keterangan && (item.keterangan.includes('Terlambat') || item.keterangan.includes('TELAT'))) {
-                    performa[item.nama].terlambat++;
-                }
-                if (item.status === 'Absen') {
-                    performa[item.nama].absen++;
+                if (!performa[item.nama]) performa[item.nama] = { nama: item.nama, masalah: 0 };
+                
+                if (item.status === 'Absen' || (item.keterangan && (item.keterangan.includes('Terlambat') || item.keterangan.includes('TELAT')))) {
+                    performa[item.nama].masalah++;
                 }
             });
+            
+            const sortedPerforma = Object.values(performa).sort((a, b) => b.masalah - a.masalah);
+            const karyawanRawan = sortedPerforma.length > 0 ? sortedPerforma[0].nama : '-';
+            document.getElementById('kpi-karyawan-rawan').textContent = karyawanRawan;
 
-            const topTerlambat = Object.values(performa).sort((a, b) => b.terlambat - a.terlambat).filter(d => d.terlambat > 0);
-            renderTable('table-top-terlambat', topTerlambat, [
-                { header: 'Nama', key: 'nama' },
-                { header: 'Departemen', key: 'departemen' },
-                { header: 'Jumlah', key: 'terlambat' }
-            ]);
 
-            const topAbsen = Object.values(performa).sort((a, b) => b.absen - a.absen).filter(d => d.absen > 0);
-            renderTable('table-top-absen', topAbsen, [
-                { header: 'Nama', key: 'nama' },
-                { header: 'Departemen', key: 'departemen' },
-                { header: 'Jumlah', key: 'absen' }
-            ]);
+            // 4. Update Grafik Tren
+            renderGrafikKeterlambatan(filteredData);
+            renderGrafikKomposisi(filteredData);
+
+            // 5. Update Daftar Aksi Prioritas
+            const topTerlambatData = Object.values(performa).map(k => ({
+                nama: k.nama,
+                jumlah: filteredData.filter(item => item.nama === k.nama && (item.keterangan && (item.keterangan.includes('Terlambat') || item.keterangan.includes('TELAT')))).length
+            })).sort((a, b) => b.jumlah - a.jumlah).filter(k => k.jumlah > 0).slice(0, 5);
+            
+            const topAbsenData = Object.values(performa).map(k => ({
+                nama: k.nama,
+                jumlah: filteredData.filter(item => item.nama === k.nama && item.status === 'Absen').length
+            })).sort((a, b) => b.jumlah - a.jumlah).filter(k => k.jumlah > 0).slice(0, 5);
+
+            renderTopList('top-keterlambatan', topTerlambatData, 'yellow');
+            renderTopList('top-absensi', topAbsenData, 'red');
+            
+            // 6. Update Peta Panas
+            // Catatan: Peta Panas menggunakan filteredKaryawanList agar tidak terlalu ramai
+            renderHeatmap(filteredData, filteredKaryawanList, startDate, endDate);
         }
 
         // Fungsi untuk mengisi filter dropdown
@@ -461,7 +580,8 @@
                 filterKaryawan.appendChild(option);
             });
             
-            // Set default tanggal filter (30 hari terakhir)
+            // Set default tanggal filter (30 hari terakhir dari data)
+            // Diperbarui: GAS sekarang MENGIRIM 30 hari terakhir, jadi kita set filter ke 30 hari terakhir juga
             const thirtyDaysAgo = new Date(new Date().setDate(today.getDate() - 30));
             document.getElementById('endDate').value = todayISO;
             document.getElementById('startDate').value = formatISODate(thirtyDaysAgo);
