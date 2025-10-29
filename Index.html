@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Absensi Karyawan Kopkar AKM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .heatmap-cell {
+            width: 25px;
+            height: 25px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+        /* Kelas status baru dari desain Anda */
+        .status-v { background-color: #10b981; } /* Hadir */
+        .status-T { background-color: #f59e0b; } /* Telat */
+        .status-S { background-color: #ef4444; } /* Sakit */
+        .status-I { background-color: #8b5cf6; } /* Izin */
+        .status-TA { background-color: #6b7280; } /* Tidak Absen */
+        .status-x { background-color: #3b82f6; } /* Lokasi Salah */
+        
+        /* Animasi loader */
+        .loader {
+          border: 4px solid #f3f3ff;
+          border-top: 4px solid #4f46e5;
+          border-radius: 50%;
+          width: 40px;
+          height: 40px;
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+    
+    <!-- Loader Utama Saat Memuat -->
+    <div id="main-loader" class="flex flex-col justify-center items-center h-screen">
+      <div class="loader"></div>
+      <p class="mt-4 text-gray-600">Menganalisis data kehadiran...</p>
+    </div>
+    
+    <!-- Konten Utama (Tersembunyi saat memuat) -->
+    <div id="main-content" class="container mx-auto px-6 py-8 hidden">
+        <!-- Header -->
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Dashboard Absensi Karyawan Kopkar AKM</h1>
+            <p class="text-gray-600" id="dashboard-subtitle">Wawasan Kinerja Koperasi</p>
+        </header>
+
+        <!-- Papan Skor Utama -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">📊 Papan Skor Utama (Bulan Ini)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Tingkat Disiplin</p>
+                            <p class="text-3xl font-bold" id="tingkat-disiplin">0%</p>
+                        </div>
+                        <div class="text-4xl">🎯</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Total Keterlambatan</p>
+                            <p class="text-3xl font-bold" id="total-telat">0</p>
+                        </div>
+                        <div class="text-4xl">⏰</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Total Absensi</p>
+                            <p class="text-3xl font-bold" id="total-absensi">0</p>
+                        </div>
+                        <div class="text-4xl">📋</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm font-medium">Karyawan Paling Rawan</p>
+                            <p class="text-xl font-bold" id="karyawan-rawan">-</p>
+                        </div>
+                        <div class="text-4xl">⚠️</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Grafik Tren -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">📈 Grafik Tren</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Grafik Batang Keterlambatan -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Keterlambatan Harian</h3>
+                    <canvas id="chartKeterlambatan" width="400" height="200"></canvas>
+                </div>
+                
+                <!-- Grafik Donat Komposisi -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Komposisi Absensi</h3>
+                    <canvas id="chartKomposisi" width="400" height="200"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Daftar Aksi -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">🎯 Daftar Aksi Prioritas</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Top 5 Keterlambatan -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <span class="text-yellow-500 mr-2">⏰</span>
+                        Top 5 Keterlambatan
+                    </h3>
+                    <div class="space-y-3" id="top-keterlambatan">
+                        <!-- Data akan diisi oleh JavaScript -->
+                        <p class="text-gray-500 text-center py-4">Tidak ada data.</p>
+                    </div>
+                </div>
+                
+                <!-- Top 5 Absensi -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <span class="text-red-500 mr-2">📋</span>
+                        Top 5 Absensi
+                    </h3>
+                    <div class="space-y-3" id="top-absensi">
+                        <!-- Data akan diisi oleh JavaScript -->
+                        <p class="text-gray-500 text-center py-4">Tidak ada data.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Peta Panas Kinerja -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">🔥 Peta Panas Kinerja</h2>
+            <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
+                <div class="mb-4 flex flex-wrap gap-4 text-sm">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-v rounded mr-2"></div>
+                        <span>Hadir</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-T rounded mr-2"></div>
+                        <span>Telat</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-S rounded mr-2"></div>
+                        <span>Sakit</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-I rounded mr-2"></div>
+                        <span>Izin</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-TA rounded mr-2"></div>
+                        <span>Tidak Absen</span>
+                    </div>
+                     <div class="flex items-center">
+                        <div class="w-4 h-4 status-x rounded mr-2"></div>
+                        <span>Lokasi Salah</span>
+                    </div>
+                </div>
+                <div id="heatmap-container">
+                    <!-- Heatmap akan diisi oleh JavaScript -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- SCRIPT BAGIAN LOGIKA PENGAMBILAN DATA LIVE -->
+    <script>
+        // Panggil fungsi Apps Script saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', function() {
+          // Setel judul bulan
+          const bulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+          const d = new Date();
+          document.getElementById('dashboard-subtitle').textContent = `Wawasan Kinerja Koperasi - ${bulan[d.getMonth()]} ${d.getFullYear()}`;
+          
+          // Panggil data dari Google Sheet
+          google.script.run
+            .withSuccessHandler(buildDashboard)
+            .withFailureHandler(showError)
+            .getAttendanceData();
+        });
+
+        function showError(error) {
+          console.error(error);
+          const loader = document.getElementById('main-loader');
+          loader.innerHTML = 
+            `<div class="max-w-lg mx-auto bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+               <strong class="font-bold">Gagal memuat data!</strong>
+               <span class="block sm:inline">Penyebab: ${error.message || JSON.stringify(error)}</span>
+               <p class="mt-2 text-xs">Pastikan Anda telah menekan 'Deploy' > 'Deployment baru' setelah menyimpan kode, dan telah 'Mengizinkan akses' (Allow access) pada akun Google Anda.</p>
+               <p class="mt-1 text-xs">Cek juga apakah nama sheet sudah benar 'Laporan' dan format header tanggal (1-31) sudah ada.</p>
+             </div>`;
+        }
+
+        // Fungsi untuk membangun dasbor setelah data diterima
+        function buildDashboard(response) {
+          if (response.error) {
+            showError(response);
+            return;
+          }
+          
+          // Bangun setiap bagian
+          buildKPIs(response.kpis);
+          buildCharts(response.charts);
+          buildTopLists(response.topLists);
+          buildHeatmap(response.heatmap.headers, response.heatmap.employees);
+          
+          // Hapus loader dan tampilkan konten
+          document.getElementById('main-loader').remove();
+          document.getElementById('main-content').classList.remove('hidden');
+        }
+        
+        // Fungsi untuk membuat Scorecard KPI
+        function buildKPIs(kpis) {
+          document.getElementById('tingkat-disiplin').textContent = kpis.disciplineRate;
+          document.getElementById('total-telat').textContent = kpis.totalLate;
+          document.getElementById('total-absensi').textContent = kpis.totalAbsent;
+          document.getElementById('karyawan-rawan').textContent = kpis.riskiestEmployee;
+        }
+        
+        // Fungsi untuk membuat Grafik
+        function buildCharts(charts) {
+          // 1. Grafik Batang Tren Telat (ID baru: chartKeterlambatan)
+          const ctxLate = document.getElementById('chartKeterlambatan').getContext('2d');
+          new Chart(ctxLate, {
+            type: 'bar',
+            data: {
+              labels: charts.dailyLate.labels,
+              datasets: [{
+                label: 'Jumlah Keterlambatan',
+                data: charts.dailyLate.data,
+                backgroundColor: 'rgba(245, 158, 11, 0.8)', // Warna Kuning Telat
+                borderColor: 'rgba(245, 158, 11, 1)',
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+              },
+              plugins: { legend: { display: false } }
+            }
+          });
+
+          // 2. Grafik Donat Komposisi Absen (ID baru: chartKomposisi)
+          const ctxAbsence = document.getElementById('chartKomposisi').getContext('2d');
+          new Chart(ctxAbsence, {
+            type: 'doughnut',
+            data: {
+              labels: charts.absenceComp.labels,
+              datasets: [{
+                label: 'Jumlah',
+                data: charts.absenceComp.data,
+                backgroundColor: [
+                  'rgba(239, 68, 68, 0.8)',  // Sakit (Merah)
+                  'rgba(139, 92, 246, 0.8)', // Izin (Ungu)
+                  'rgba(107, 114, 128, 0.8)', // TA (Abu-abu)
+                  'rgba(59, 130, 246, 0.8)'  // Lokasi Salah (Biru)
+                ],
+                borderWidth: 2
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom' }
+              }
+            }
+          });
+        }
+        
+        // Fungsi untuk membuat Tabel Top 5 (Struktur <div> baru)
+        function buildTopLists(lists) {
+          const containerTelat = document.getElementById('top-keterlambatan');
+          const containerAbsensi = document.getElementById('top-absensi');
+          
+          containerTelat.innerHTML = ''; // Kosongkan placeholder
+          if (lists.topLate.length > 0 && lists.topLate.some(item => item.late > 0)) {
+            lists.topLate.forEach((item, index) => {
+              if (item.late > 0) {
+                containerTelat.innerHTML += `
+                  <div class="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 bg-yellow-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
+                        <span class="font-medium">${item.name}</span>
+                    </div>
+                    <span class="text-yellow-600 font-bold">${item.late}x</span>
+                  </div>`;
+              }
+            });
+          } else {
+             containerTelat.innerHTML = '<p class="text-gray-500 text-center py-4">Tidak ada data keterlambatan.</p>';
+          }
+
+          containerAbsensi.innerHTML = ''; // Kosongkan placeholder
+          if (lists.topAbsent.length > 0 && lists.topAbsent.some(item => item.absent > 0)) {
+            lists.topAbsent.forEach((item, index) => {
+              if (item.absent > 0) {
+                containerAbsensi.innerHTML += `
+                  <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
+                        <span class="font-medium">${item.name}</span>
+                    </div>
+                    <span class="text-red-600 font-bold">${item.absent}x</span>
+                  </div>`;
+              }
+            });
+          } else {
+            containerAbsensi.innerHTML = '<p class="text-gray-500 text-center py-4">Tidak ada data absensi.</p>';
+          }
+        }
+
+        // Fungsi untuk membuat tabel detail (Heatmap) (Struktur baru)
+        function buildHeatmap(headers, employees) {
+          const container = document.getElementById('heatmap-container');
+          const table = document.createElement('table');
+          table.className = 'w-full';
+
+          // Header tanggal
+          const headerRow = document.createElement('tr');
+          let nameHeader = '<th class="text-left p-2 font-medium text-gray-700 min-w-32 sticky left-0 bg-white z-10">Karyawan</th>';
+          let dateHeaders = '';
+          
+          let dateColCount = 0; // Untuk ID kolom
+          
+          headers.forEach((header, index) => {
+            if (index === 0 || index === 1) { // Asumsi Nama dan ID
+               if(index === 0) nameHeader = `<th class="text-left p-2 font-medium text-gray-700 min-w-32 sticky left-0 bg-white z-10">${header}</th>`;
+            } else if (typeof header === 'number' && header >= 1 && header <= 31) {
+               dateHeaders += `<th class="text-center p-1 text-xs text-gray-600">${header}</th>`;
+               dateColCount++; // Hitung kolom tanggal
+            }
+          });
+          headerRow.innerHTML = nameHeader + dateHeaders;
+          table.appendChild(headerRow);
+
+          // Baris karyawan
+          employees.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-t';
+            
+            const nameCell = document.createElement('td');
+            nameCell.className = 'p-2 font-medium text-gray-800 sticky left-0 bg-white';
+            nameCell.textContent = row[0]; // Kolom Nama
+            tr.appendChild(nameCell);
+
+            // Sel status (heatmap)
+            headers.forEach((header, index) => {
+              if (typeof header === 'number' && header >= 1 && header <= 31) {
+                const cell = document.createElement('td');
+                cell.className = 'p-1 text-center';
+                
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'heatmap-cell mx-auto cursor-pointer';
+                
+                const status = row[index];
+                let statusClass = '';
+                
+                // Peta status ke kelas CSS
+                switch (status) {
+                    case 'v': statusClass = 'status-v'; break;
+                    case 'T': statusClass = 'status-T'; break;
+                    case 'S': statusClass = 'status-S'; break;
+                    case 'I': statusClass = 'status-I'; break;
+                    case 'TA': statusClass = 'status-TA'; break;
+                    case 'x': statusClass = 'status-x'; break;
+                }
+                
+                if(statusClass) {
+                  statusDiv.classList.add(statusClass);
+                  statusDiv.title = `${row[0]} - Hari ${header}: ${status}`;
+                }
+                
+                cell.appendChild(statusDiv);
+                tr.appendChild(cell);
+              }
+            });
+            table.appendChild(tr);
+          });
+          container.appendChild(table);
+        }
+    </script>
+</body>
+</html>
+
+
