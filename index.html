@@ -1,33 +1,30 @@
 <!DOCTYPE html>
-<html lang="id" class="h-full">
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Absensi Karyawan</title>
+    <title>Dashboard Kehadiran Karyawan</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
     <style>
-        /* PERBAIKAN: @import dipindah ke baris paling atas */
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
         body {
+            box-sizing: border-box;
             font-family: 'Inter', sans-serif;
         }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
         
-        /* Gaya untuk Papan Skor Utama */
         .metric-card {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
         .metric-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
         }
-        
-        /* Gaya untuk Heatmap */
         .heatmap-cell {
-            width: 24px;
-            height: 24px;
+            width: 25px;
+            height: 25px;
             border-radius: 4px;
             transition: all 0.2s ease;
         }
@@ -35,167 +32,141 @@
             transform: scale(1.2);
             z-index: 10;
         }
-        .status-hadir { background-color: #10b981; } /* Hijau */
-        .status-telat { background-color: #f59e0b; } /* Kuning */
-        .status-sakit { background-color: #ef4444; } /* Merah */
-        .status-izin { background-color: #8b5cf6; } /* Ungu */
-        .status-absen { background-color: #6b7280; } /* Abu-abu */
-        .status-kosong { background-color: #f3f4f6; } /* Abu-abu muda */
-
-        /* Loader */
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+        .status-v { background-color: #10b981; } /* Hadir Sesuai (v) */
+        .status-T { background-color: #f59e0b; } /* Telat Sesuai (T) */
+        .status-x { background-color: #f97316; } /* Lokasi Tidak Sesuai (x) - ORANGE */
+        .status-s { background-color: #ef4444; } /* Sakit (s) */
+        .status-i { background-color: #8b5cf6; } /* Izin (i) */
+        .status-a { background-color: #374151; } /* Alpha (a) - DARK GRAY */
+        .sticky-th {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background-color: white;
         }
         #loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(255, 255, 255, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.5s ease;
         }
     </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-full font-sans">
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-full">
     
     <!-- Loading Overlay -->
-    <div id="loading-overlay">
-        <div class="loader"></div>
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+        <div class="text-white text-xl font-semibold p-8 rounded-lg">
+            <div id="loading-text">Memuat data dari Google Sheet...</div>
+        </div>
     </div>
-    
-    <!-- Konten Utama -->
-    <div class="container mx-auto px-4 py-8">
-        
-        <!-- Header -->
-        <header class="mb-6 md:mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Dashboard Absensi Karyawan</h1>
-            <p class="text-gray-600 text-lg" id="periode-laporan">Memuat data...</p>
-        </header>
 
-        <!-- Filter -->
-        <section class="mb-6 p-4 bg-white rounded-xl shadow-lg">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="container mx-auto px-6 py-8">
+        
+        <!-- Header dan Filter Tanggal -->
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <label for="filter-departemen" class="block text-sm font-medium text-gray-700 mb-1">Filter Departemen</label>
-                    <select id="filter-departemen" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="semua">Semua Departemen</option>
-                        <!-- Pilihan departemen akan diisi oleh JS -->
-                    </select>
+                    <h1 class="text-4xl font-bold text-gray-800 mb-2">Dashboard Kehadiran Karyawan</h1>
+                    <p class="text-gray-600" id="subheader-tanggal">Menampilkan data untuk rentang waktu yang dipilih</p>
                 </div>
-                <div>
-                    <label for="filter-karyawan" class="block text-sm font-medium text-gray-700 mb-1">Filter Karyawan</label>
-                    <select id="filter-karyawan" class="w-full p-2 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="semua">Semua Karyawan</option>
-                        <!-- Pilihan karyawan akan diisi oleh JS -->
-                    </select>
-                </div>
-                <div class="flex items-end">
-                    <button id="filter-button" class="w-full md:w-auto bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 transition duration-300">Terapkan Filter</button>
+                <div class="flex flex-wrap items-center gap-2 p-4 bg-white rounded-xl shadow-lg">
+                    <label for="tanggal-mulai" class="text-sm font-medium text-gray-700">Mulai:</label>
+                    <input type="date" id="tanggal-mulai" class="border-gray-300 rounded-md shadow-sm text-sm p-2">
+                    <label for="tanggal-selesai" class="text-sm font-medium text-gray-700">Selesai:</label>
+                    <input type="date" id="tanggal-selesai" class="border-gray-300 rounded-md shadow-sm text-sm p-2">
+                    <button id="filter-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">Filter</button>
                 </div>
             </div>
-        </section>
+        </header>
 
         <!-- Papan Skor Utama -->
         <section class="mb-8">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">📊 Papan Skor Utama</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <!-- Tingkat Disiplin -->
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">📊 Papan Skor Utama</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Card Tingkat Disiplin -->
                 <div class="metric-card text-white p-6 rounded-xl shadow-lg">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-blue-100 text-sm font-medium">Tingkat Disiplin</p>
-                            <p class="text-3xl font-bold" id="kpi-disiplin">0%</p>
+                            <p class="text-3xl font-bold" id="tingkat-disiplin">0%</p>
                         </div>
-                        <div class="text-4xl opacity-80">🎯</div>
+                        <div class="text-4xl">🎯</div>
                     </div>
                 </div>
-                <!-- Total Keterlambatan -->
+                
+                <!-- Card Total Keterlambatan -->
                 <div class="metric-card text-white p-6 rounded-xl shadow-lg">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-blue-100 text-sm font-medium">Total Keterlambatan</p>
-                            <p class="text-3xl font-bold" id="kpi-telat">0</p>
+                            <p class="text-blue-100 text-sm font-medium">Total Keterlambatan (T)</p>
+                            <p class="text-3xl font-bold" id="total-telat">0</p>
                         </div>
-                        <div class="text-4xl opacity-80">⏰</div>
+                        <div class="text-4xl">⏰</div>
                     </div>
                 </div>
-                <!-- Total Absensi -->
+                
+                <!-- Card Total Absensi -->
                 <div class="metric-card text-white p-6 rounded-xl shadow-lg">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-blue-100 text-sm font-medium">Total Absensi (Izin/Sakit/TA)</p>
-                            <p class="text-3xl font-bold" id="kpi-absen">0</p>
+                            <p class="text-blue-100 text-sm font-medium">Total Absensi (S+I+A)</p>
+                            <p class="text-3xl font-bold" id="total-absensi">0</p>
                         </div>
-                        <div class="text-4xl opacity-80">📋</div>
+                        <div class="text-4xl">📋</div>
                     </div>
                 </div>
-                <!-- Karyawan Paling Rawan -->
+                
+                <!-- Card Lokasi Tidak Sesuai -->
                 <div class="metric-card text-white p-6 rounded-xl shadow-lg">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-blue-100 text-sm font-medium">Karyawan Paling Rawan</p>
-                            <p class="text-xl font-bold" id="kpi-rawan">-</p>
+                            <p class="text-blue-100 text-sm font-medium">Lokasi Tdk Sesuai (x)</p>
+                            <p class="text-3xl font-bold" id="total-lokasi-x">0</p>
                         </div>
-                        <div class="text-4xl opacity-80">⚠️</div>
+                        <div class="text-4xl">⚠️</div>
                     </div>
                 </div>
             </div>
         </section>
-        
+
         <!-- Grafik Tren -->
         <section class="mb-8">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">📈 Grafik Tren</h2>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">📈 Grafik Tren</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <!-- Grafik Batang Keterlambatan -->
                 <div class="bg-white p-6 rounded-xl shadow-lg">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Keterlambatan Harian</h3>
-                    <canvas id="chartKeterlambatan" height="200"></canvas>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Tren Harian (Telat vs Lokasi X)</h3>
+                    <canvas id="chartTren" width="400" height="200"></canvas>
                 </div>
+                
                 <!-- Grafik Donat Komposisi -->
                 <div class="bg-white p-6 rounded-xl shadow-lg">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Komposisi Absensi</h3>
-                    <canvas id="chartKomposisi" height="200"></canvas>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Komposisi Pelanggaran</h3>
+                    <canvas id="chartKomposisi" width="400" height="200"></canvas>
                 </div>
             </div>
         </section>
 
         <!-- Daftar Aksi -->
         <section class="mb-8">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">🎯 Daftar Aksi Prioritas</h2>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">🎯 Daftar Aksi Prioritas</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Top 5 Keterlambatan -->
+                <!-- Top 5 Pelanggaran (Telat + Lokasi X) -->
                 <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                        <span class="text-yellow-500 mr-2 text-xl">⏰</span>
-                        Top 5 Keterlambatan
+                        <span class="text-yellow-500 mr-2">⚠️</span>
+                        Top 5 Pelanggaran (Telat + Lokasi X)
                     </h3>
-                    <div class="space-y-3" id="top-keterlambatan">
-                        <p class="text-gray-500">Tidak ada data.</p>
+                    <div class="space-y-3" id="top-pelanggaran">
                         <!-- Data akan diisi oleh JavaScript -->
                     </div>
                 </div>
-                <!-- Top 5 Absensi -->
+                
+                <!-- Top 5 Absensi (Sakit + Izin + Alpha) -->
                 <div class="bg-white p-6 rounded-xl shadow-lg">
                     <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                        <span class="text-red-500 mr-2 text-xl">📋</span>
-                        Top 5 Absensi (Izin/Sakit/TA)
+                        <span class="text-red-500 mr-2">📋</span>
+                        Top 5 Absensi (S + I + A)
                     </h3>
                     <div class="space-y-3" id="top-absensi">
-                        <p class="text-gray-500">Tidak ada data.</p>
                         <!-- Data akan diisi oleh JavaScript -->
                     </div>
                 </div>
@@ -204,301 +175,304 @@
 
         <!-- Peta Panas Kinerja -->
         <section class="mb-8">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">🔥 Peta Panas Kinerja</h2>
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">🔥 Daftar Hadir Karyawan</h2>
             <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
-                <div class="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-sm">
-                    <div class="flex items-center"><div class="w-4 h-4 status-hadir rounded mr-2"></div><span>Hadir</span></div>
-                    <div class="flex items-center"><div class="w-4 h-4 status-telat rounded mr-2"></div><span>Telat</span></div>
-                    <div class="flex items-center"><div class="w-4 h-4 status-sakit rounded mr-2"></div><span>Sakit</span></div>
-                    <div class="flex items-center"><div class="w-4 h-4 status-izin rounded mr-2"></div><span>Izin</span></div>
-                    <div class="flex items-center"><div class="w-4 h-4 status-absen rounded mr-2"></div><span>Tidak Absen</span></div>
-                    <div class="flex items-center"><div class="w-4 h-4 status-kosong rounded mr-2 border"></div><span>Kosong</span></div>
+                <!-- Legenda Heatmap -->
+                <div class="mb-4 flex flex-wrap gap-4 text-sm">
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-v rounded mr-2"></div>
+                        <span>Hadir (v)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-T rounded mr-2"></div>
+                        <span>Telat (T)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-x rounded mr-2"></div>
+                        <span>Lokasi X (x)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-s rounded mr-2"></div>
+                        <span>Sakit (s)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-i rounded mr-2"></div>
+                        <span>Izin (i)</span>
+                    </div>
+                    <div class="flex items-center">
+                        <div class="w-4 h-4 status-a rounded mr-2"></div>
+                        <span>Alpha (a)</span>
+                    </div>
                 </div>
+                <!-- Kontainer Heatmap -->
                 <div id="heatmap-container" class="overflow-x-auto">
-                    <p class="text-gray-500">Pilih filter untuk menampilkan data heatmap.</p>
                     <!-- Heatmap akan diisi oleh JavaScript -->
                 </div>
             </div>
         </section>
-
     </div>
 
     <script>
-        // --- KONFIGURASI ---
-        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyIgORJuY2bwgv7Q70qDEmSE2EFIiuZ3xBcs7d5lbyAjWABwVzBAjuqapxTU5qQ-n0kAg/exec";
+        // --- KONEKSI GOOGLE SHEET ---
+        // !!! PENTING: Ganti dengan URL Web App Anda dari Google Apps Script !!!
+        // (Lihat file README.md untuk instruksi)
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6YajqskEFxko5jVtpK8RS3oI-LUHbaLCUmgCFa-xHZIWSGrxJfB66ng0O0HqR4Arf-g/exec"; 
 
-        // --- VARIABEL GLOBAL ---
-        let globalLaporanData = [];
-        let globalKaryawanList = [];
-        let chartKeterlambatan = null;
-        let chartKomposisi = null;
-
-        // --- ELEMEN DOM ---
+        // Database master (akan diisi dari fetch)
+        let masterData = {};
+        // Daftar karyawan (akan diisi dari fetch)
+        let allKaryawan = [];
+        
+        let allChartInstances = {
+            chartTren: null,
+            chartKomposisi: null
+        };
         const loadingOverlay = document.getElementById('loading-overlay');
-        const periodeLaporanEl = document.getElementById('periode-laporan');
-        const filterDepartemenEl = document.getElementById('filter-departemen');
-        const filterKaryawanEl = document.getElementById('filter-karyawan');
-        const filterButton = document.getElementById('filter-button');
-
-        // --- FUNGSI UTAMA ---
+        const loadingText = document.getElementById('loading-text');
 
         /**
-         * Inisialisasi Dashboard
-         * Mengambil data dari Google Apps Script dan memuat filter awal.
+         * Mengambil data master dari Google Apps Script Web App
          */
-        async function initDashboard() {
-            loadingOverlay.style.opacity = '1';
-            
-            // Tambahkan "cache buster" untuk selalu mendapat data baru
-            const url = `${GAS_WEB_APP_URL}?v=${new Date().getTime()}`;
-            
-            let data; // Deklarasi data di luar try-catch
+        async function fetchMasterData() {
+            if (WEB_APP_URL === "https://script.google.com/macros/s/AKfycbz6YajqskEFxko5jVtpK8RS3oI-LUHbaLCUmgCFa-xHZIWSGrxJfB66ng0O0HqR4Arf-g/exec") {
+                loadingText.innerHTML = '<div class="p-4 bg-red-600 rounded-lg">Error: URL Web App belum dimasukkan.<br>Silakan edit file HTML ini dan masukkan URL Anda pada variabel `WEB_APP_URL`.<br>Lihat file `README.md` untuk instruksi.</div>';
+                return;
+            }
 
-            // --- PERBAIKAN: TRY-CATCH YANG LEBIH ROBUST ---
             try {
-                const response = await fetch(url);
+                const response = await fetch(WEB_APP_URL);
                 if (!response.ok) {
-                    // Tangani jika server GAS error (500, 404, dll)
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`Network response error: ${response.statusText}`);
                 }
+                const data = await response.json();
                 
-                data = await response.json();
-                
-                // Cek jika GAS mengirim balik data error yang kita buat (dari blok catch di GAS)
-                if (data.periode && data.periode.startsWith("Error:")) {
-                    throw new Error(data.periode);
+                if (data.error) {
+                    throw new Error(`Error dari Apps Script: ${data.message}`);
                 }
+
+                masterData = data;
+                allKaryawan = Object.keys(data).sort(); // Ambil nama karyawan dari data dan sortir
+
+                // Sembunyikan loading
+                loadingOverlay.style.opacity = 0;
+                setTimeout(() => {
+                    loadingOverlay.style.display = 'none';
+                }, 500); // Tunggu transisi selesai
+
+                // --- Inisialisasi Dashboard Setelah Data Siap ---
                 
-                // Cek jika data yang diterima kosong (ini bukan error, tapi perlu ditangani)
-                if (!data.karyawanList || !data.laporanData) {
-                    throw new Error("Struktur data tidak valid dari server.");
-                }
+                // Set default tanggal (30 hari terakhir)
+                const today = dayjs().format('YYYY-MM-DD');
+                const last30Days = dayjs().subtract(29, 'day').format('YYYY-MM-DD');
+                
+                document.getElementById('tanggal-mulai').value = last30Days;
+                document.getElementById('tanggal-selesai').value = today;
+
+                // Tambahkan event listener ke tombol filter
+                document.getElementById('filter-btn').addEventListener('click', () => {
+                    const start = document.getElementById('tanggal-mulai').value;
+                    const end = document.getElementById('tanggal-selesai').value;
+                    if (start && end && dayjs(start).isBefore(dayjs(end).add(1, 'day'))) {
+                        updateDashboard(start, end);
+                    } else {
+                        alert("Rentang tanggal tidak valid.");
+                    }
+                });
+
+                // Muat dashboard dengan data default
+                updateDashboard(last30Days, today);
 
             } catch (error) {
-                console.error("Gagal mengambil data:", error);
-                periodeLaporanEl.textContent = `Gagal memuat data: ${error.message}`;
-                periodeLaporanEl.classList.add('text-red-600');
-                loadingOverlay.style.opacity = '0'; // Sembunyikan loader
-                loadingOverlay.style.pointerEvents = 'none';
+                console.error("Gagal mengambil data dari Google Sheet:", error);
+                loadingText.innerHTML = `<div class="p-4 bg-red-600 rounded-lg">Gagal memuat data. <br>Error: ${error.message}. <br>Pastikan URL Web App benar dan Apps Script telah di-deploy dengan benar (akses 'Siapa saja').</div>`;
+            }
+        }
+
+
+        /**
+         * Fungsi utama untuk memfilter dan memperbarui seluruh UI dashboard.
+         * @param {string} startDate - Format 'YYYY-MM-DD'
+         * @param {string} endDate - Format 'YYYY-MM-DD'
+         */
+        function updateDashboard(startDate, endDate) {
+            // 0. Update subheader
+            document.getElementById('subheader-tanggal').textContent = `Data dari ${startDate} sampai ${endDate}`;
+
+            // 1. Filter masterData berdasarkan rentang tanggal
+            const filteredData = {};
+            const dateMap = new Map(); // Untuk melacak semua tanggal unik di rentang
+            let currentDate = dayjs(startDate);
+            const end = dayjs(endDate);
+
+            while (currentDate.isBefore(end) || currentDate.isSame(end)) {
+                dateMap.set(currentDate.format('YYYY-MM-DD'), true);
+                currentDate = currentDate.add(1, 'day');
+            }
+
+            allKaryawan.forEach(nama => {
+                // Pastikan masterData[nama] adalah array
+                const employeeData = Array.isArray(masterData[nama]) ? masterData[nama] : [];
                 
-                // Hentikan eksekusi jika fetch gagal
-                return; 
-            }
-            // --- AKHIR PERBAIKAN ---
-
-            // Jika berhasil, 'data' dijamin valid dan berisi array
-            globalLaporanData = data.laporanData;
-            globalKaryawanList = data.karyawanList;
-            
-            // Set judul periode
-            periodeLaporanEl.textContent = `Laporan untuk periode: ${data.periode || 'Bulan Ini'}`;
-            
-            // Muat filter
-            populateFilter(globalKaryawanList);
-            
-            // Tambahkan event listener ke filter
-            filterButton.addEventListener('click', updateDashboard);
-            
-            // Tampilkan data awal (semua karyawan)
-            updateDashboard();
-            
-            // Sembunyikan loader
-            loadingOverlay.style.opacity = '0';
-            loadingOverlay.style.pointerEvents = 'none';
-        }
-
-        /**
-         * Memuat pilihan filter berdasarkan daftar karyawan.
-         */
-        function populateFilter(karyawanList) {
-            // Filter Departemen
-            const departemenSet = new Set(karyawanList.map(k => k.departemen));
-            departemenSet.forEach(dept => {
-                const option = document.createElement('option');
-                option.value = dept;
-                option.textContent = dept;
-                filterDepartemenEl.appendChild(option);
+                filteredData[nama] = employeeData.filter(day => {
+                    return dateMap.has(day.date);
+                }).sort((a, b) => dayjs(a.date).isAfter(dayjs(b.date)) ? 1 : -1); // Sortir menaik
             });
-
-            // Filter Karyawan
-            karyawanList.forEach(k => {
-                const option = document.createElement('option');
-                option.value = k.id;
-                option.textContent = k.nama;
-                filterKaryawanEl.appendChild(option);
-            });
-        }
-
-        /**
-         * Memperbarui semua komponen dashboard berdasarkan filter yang dipilih.
-         */
-        function updateDashboard() {
-            const idKaryawan = filterKaryawanEl.value;
-            const departemen = filterDepartemenEl.value;
-
-            // Tentukan data yang akan di-render
-            let filteredData = globalLaporanData;
-
-            if (idKaryawan !== 'semua') {
-                filteredData = globalLaporanData.filter(d => d.id === idKaryawan);
-            } else if (departemen !== 'semua') {
-                filteredData = globalLaporanData.filter(d => d.departemen === departemen);
-            }
             
-            // Tentukan daftar karyawan yang akan di-render di heatmap
-            let filteredKaryawanList = globalKaryawanList;
-            if (idKaryawan !== 'semua') {
-                filteredKaryawanList = globalKaryawanList.filter(k => k.id === idKaryawan);
-            } else if (departemen !== 'semua') {
-                filteredKaryawanList = globalKaryawanList.filter(k => k.departemen === departemen);
-            }
+            const uniqueDates = Array.from(dateMap.keys()).sort();
 
-            // Update semua komponen
-            updateKPI(filteredData);
-            updateChartKeterlambatan(filteredData);
-            updateChartKomposisi(filteredData);
-            updateTopLists(filteredData);
-            updateHeatmap(filteredData, filteredKaryawanList);
-        }
+            // 2. Hitung statistik dari data yang difilter
+            const stats = hitungStatistik(filteredData);
 
-        /**
-         * Update 4 Kartu Papan Skor Utama (KPI).
-         */
-        function updateKPI(data) {
-            const totalHadirTepatWaktu = data.filter(d => d.status === 'Hadir' && d.keterangan === 'Tepat Waktu').length;
-            const totalTelat = data.filter(d => d.status === 'Hadir' && d.keterangan === 'Terlambat').length;
-            const totalSakit = data.filter(d => d.status === 'Sakit').length;
-            const totalIzin = data.filter(d => d.status === 'Izin').length;
-            const totalTidakAbsen = data.filter(d => d.status === 'Absen' && d.keterangan === 'Tidak Absen').length;
+            // 3. Update Papan Skor
+            updatePapanSkor(stats);
 
-            const totalAbsensi = totalSakit + totalIzin + totalTidakAbsen;
-            const totalKehadiran = totalHadirTepatWaktu + totalTelat;
-
-            // 1. Tingkat Disiplin
-            let disiplin = 0;
-            if (totalKehadiran > 0) {
-                disiplin = Math.round((totalHadirTepatWaktu / totalKehadiran) * 100);
-            }
-            document.getElementById('kpi-disiplin').textContent = `${disiplin}%`;
-
-            // 2. Total Keterlambatan
-            document.getElementById('kpi-telat').textContent = totalTelat;
+            // 4. Update Grafik
+            // Hancurkan chart lama sebelum membuat yang baru
+            if (allChartInstances.chartTren) allChartInstances.chartTren.destroy();
+            if (allChartInstances.chartKomposisi) allChartInstances.chartKomposisi.destroy();
             
-            // 3. Total Absensi
-            document.getElementById('kpi-absen').textContent = totalAbsensi;
+            allChartInstances.chartTren = buatGrafikTren(filteredData, uniqueDates);
+            allChartInstances.chartKomposisi = buatGrafikKomposisi(stats);
 
-            // 4. Karyawan Paling Rawan
-            document.getElementById('kpi-rawan').textContent = getKaryawanRawan(data);
+            // 5. Update Daftar Aksi
+            buatDaftarTop5(stats);
+
+            // 6. Update Heatmap
+            buatHeatmap(filteredData, uniqueDates);
         }
 
         /**
-         * Mencari karyawan dengan jumlah (Telat + Absen) terbanyak.
+         * Menghitung semua statistik agregat dari data yang difilter.
          */
-        function getKaryawanRawan(data) {
-            const stats = {};
-            data.forEach(d => {
-                if (d.status !== 'Hadir' || d.keterangan === 'Terlambat') {
-                    if (!stats[d.nama]) stats[d.nama] = 0;
-                    stats[d.nama]++;
+        function hitungStatistik(filteredData) {
+            let totalHadir_v = 0;
+            let totalTelat_T = 0;
+            let totalLokasiX_x = 0;
+            let totalSakit_s = 0;
+            let totalIzin_i = 0;
+            let totalAlpha_a = 0;
+            const karyawanStats = {};
+
+            allKaryawan.forEach(nama => {
+                // Inisialisasi stats untuk tiap karyawan
+                karyawanStats[nama] = { v: 0, T: 0, x: 0, s: 0, i: 0, a: 0 };
+                
+                if (filteredData[nama]) { // Pastikan data ada
+                    filteredData[nama].forEach(day => {
+                        const status = day.status;
+                        if (karyawanStats[nama][status] !== undefined) {
+                            karyawanStats[nama][status]++;
+                        }
+                        
+                        // Akumulasi total
+                        if (status === 'v') totalHadir_v++;
+                        else if (status === 'T') totalTelat_T++;
+                        else if (status === 'x') totalLokasiX_x++;
+                        else if (status === 's') totalSakit_s++;
+                        else if (status === 'i') totalIzin_i++;
+                        else if (status === 'a') totalAlpha_a++;
+                    });
                 }
             });
 
-            let maxCount = 0;
-            let namaRawan = '-';
-            for (const nama in stats) {
-                if (stats[nama] > maxCount) {
-                    maxCount = stats[nama];
-                    namaRawan = nama;
-                }
-            }
-            return namaRawan;
+            return {
+                totalHadir_v, totalTelat_T, totalLokasiX_x, totalSakit_s, totalIzin_i, totalAlpha_a,
+                karyawanStats
+            };
         }
 
         /**
-         * Update Grafik Batang (Bar) Tren Keterlambatan Harian.
+         * Update 4 kartu di Papan Skor Utama.
          */
-        function updateChartKeterlambatan(data) {
-            const telatPerHari = {};
-            // Inisialisasi 31 hari
-            for (let i = 1; i <= 31; i++) {
-                telatPerHari[i] = 0;
-            }
+        function updatePapanSkor(stats) {
+            const totalDisiplin = stats.totalHadir_v;
+            const totalPelanggaran = stats.totalTelat_T + stats.totalLokasiX_x;
+            const totalHariKerja = totalDisiplin + totalPelanggaran;
             
-            data.forEach(d => {
-                if (d.status === 'Hadir' && d.keterangan === 'Terlambat') {
-                    const hari = new Date(d.tanggal).getUTCDate(); // Gunakan UTC agar konsisten
-                    if (!telatPerHari[hari]) telatPerHari[hari] = 0;
-                    telatPerHari[hari]++;
-                }
+            const tingkatDisiplin = totalHariKerja > 0 ? Math.round((totalDisiplin / totalHariKerja) * 100) : 0;
+            const totalAbsensi = stats.totalSakit_s + stats.totalIzin_i + stats.totalAlpha_a;
+
+            document.getElementById('tingkat-disiplin').textContent = tingkatDisiplin + '%';
+            document.getElementById('total-telat').textContent = stats.totalTelat_T;
+            document.getElementById('total-absensi').textContent = totalAbsensi;
+            document.getElementById('total-lokasi-x').textContent = stats.totalLokasiX_x;
+        }
+
+        /**
+         * Membuat grafik batang tren harian untuk Telat (T) dan Lokasi X (x).
+         */
+        function buatGrafikTren(filteredData, uniqueDates) {
+            const dailyTelat = {};
+            const dailyLokasiX = {};
+
+            uniqueDates.forEach(date => {
+                dailyTelat[date] = 0;
+                dailyLokasiX[date] = 0;
+                allKaryawan.forEach(nama => {
+                    const dayData = filteredData[nama] ? filteredData[nama].find(d => d.date === date) : null;
+                    if (dayData) {
+                        if (dayData.status === 'T') dailyTelat[date]++;
+                        if (dayData.status === 'x') dailyLokasiX[date]++;
+                    }
+                });
             });
 
-            // Ambil data hari yang ada isinya saja
-            const labels = Object.keys(telatPerHari).filter(day => telatPerHari[day] > 0);
-            const values = labels.map(day => telatPerHari[day]);
-
-            const ctx = document.getElementById('chartKeterlambatan').getContext('2d');
-            if (chartKeterlambatan) {
-                chartKeterlambatan.destroy();
-            }
-            chartKeterlambatan = new Chart(ctx, {
+            const ctx = document.getElementById('chartTren').getContext('2d');
+            return new Chart(ctx, {
                 type: 'bar',
                 data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Jumlah Keterlambatan',
-                        data: values,
-                        backgroundColor: 'rgba(245, 158, 11, 0.8)', // Oranye
-                        borderColor: 'rgba(245, 158, 11, 1)',
-                        borderWidth: 1
-                    }]
+                    labels: uniqueDates.map(d => dayjs(d).format('DD/MM')), // Format label tanggal
+                    datasets: [
+                        {
+                            label: 'Total Keterlambatan (T)',
+                            data: Object.values(dailyTelat),
+                            backgroundColor: 'rgba(245, 158, 11, 0.8)', // Kuning
+                            borderColor: 'rgba(245, 158, 11, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Total Lokasi X (x)',
+                            data: Object.values(dailyLokasiX),
+                            backgroundColor: 'rgba(249, 115, 22, 0.8)', // Orange
+                            borderColor: 'rgba(249, 115, 22, 1)',
+                            borderWidth: 1
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
-                    plugins: { legend: { display: false } },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: { stepSize: 1 }
-                        }
-                    }
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                        x: { stacked: true } // Tumpuk jika pada hari yang sama
+                    },
+                    plugins: { legend: { position: 'bottom' } }
                 }
             });
         }
 
         /**
-         * Update Grafik Donat (Doughnut) Komposisi Absensi.
+         * Membuat grafik donat komposisi untuk semua pelanggaran.
          */
-        function updateChartKomposisi(data) {
-            const totalSakit = data.filter(d => d.status === 'Sakit').length;
-            const totalIzin = data.filter(d => d.status === 'Izin').length;
-            const totalTidakAbsen = data.filter(d => d.status === 'Absen' && d.keterangan === 'Tidak Absen').length;
-            
-            const total = totalSakit + totalIzin + totalTidakAbsen;
-            
+        function buatGrafikKomposisi(stats) {
             const ctx = document.getElementById('chartKomposisi').getContext('2d');
-            if (chartKomposisi) {
-                chartKomposisi.destroy();
-            }
-            
-            // Tampilkan pesan jika tidak ada data
-            if (total === 0) {
-                 ctx.font = "16px Arial";
-                 ctx.fillStyle = "#9ca3af";
-                 ctx.textAlign = "center";
-                 ctx.fillText("Tidak ada data absensi", ctx.canvas.width / 2, ctx.canvas.height / 2);
-                 return;
-            }
-            
-            chartKomposisi = new Chart(ctx, {
+            return new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['Sakit', 'Izin', 'Tidak Absen (TA)'],
+                    labels: ['Telat (T)', 'Lokasi X (x)', 'Sakit (s)', 'Izin (i)', 'Alpha (a)'],
                     datasets: [{
-                        data: [totalSakit, totalIzin, totalTidakAbsen],
+                        data: [
+                            stats.totalTelat_T, 
+                            stats.totalLokasiX_x, 
+                            stats.totalSakit_s, 
+                            stats.totalIzin_i, 
+                            stats.totalAlpha_a
+                        ],
                         backgroundColor: [
-                            'rgba(239, 68, 68, 0.8)',  // Merah
-                            'rgba(139, 92, 246, 0.8)', // Ungu
-                            'rgba(107, 114, 128, 0.8)' // Abu-abu
+                            'rgba(245, 158, 11, 0.8)', // Telat (Kuning)
+                            'rgba(249, 115, 22, 0.8)', // Lokasi X (Orange)
+                            'rgba(239, 68, 68, 0.8)',  // Sakit (Merah)
+                            'rgba(139, 92, 246, 0.8)', // Izin (Ungu)
+                            'rgba(55, 65, 81, 0.8)'    // Alpha (Abu-abu tua)
                         ],
                         borderWidth: 2
                     }]
@@ -513,145 +487,147 @@
         }
 
         /**
-         * Update daftar Top 5 Keterlambatan dan Absensi.
+         * Membuat daftar Top 5 untuk Pelanggaran dan Absensi.
          */
-        function updateTopLists(data) {
-            const statsTelat = {};
-            const statsAbsen = {};
+        function buatDaftarTop5(stats) {
+            // Top 5 Pelanggaran (T + x)
+            const topPelanggaran = allKaryawan.map(nama => ({
+                nama,
+                jumlah: (stats.karyawanStats[nama]?.T || 0) + (stats.karyawanStats[nama]?.x || 0)
+            })).sort((a, b) => b.jumlah - a.jumlah).slice(0, 5);
 
-            data.forEach(d => {
-                const nama = d.nama;
-                if (d.status === 'Hadir' && d.keterangan === 'Terlambat') {
-                    if (!statsTelat[nama]) statsTelat[nama] = 0;
-                    statsTelat[nama]++;
-                }
-                if (d.status === 'Sakit' || d.status === 'Izin' || (d.status === 'Absen' && d.keterangan === 'Tidak Absen')) {
-                    if (!statsAbsen[nama]) statsAbsen[nama] = 0;
-                    statsAbsen[nama]++;
-                }
+            const containerPelanggaran = document.getElementById('top-pelanggaran');
+            containerPelanggaran.innerHTML = '';
+            topPelanggaran.forEach((item, index) => {
+                if (item.jumlah === 0) return; // Sembunyikan jika 0
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-3 bg-yellow-50 rounded-lg';
+                div.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 bg-yellow-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
+                        <span class="font-medium">${item.nama}</span>
+                    </div>
+                    <span class="text-yellow-600 font-bold">${item.jumlah}x</span>
+                `;
+                containerPelanggaran.appendChild(div);
             });
 
-            // Konversi ke array, urutkan, dan ambil top 5
-            const sortedTelat = Object.entries(statsTelat).sort(([, a], [, b]) => b - a).slice(0, 5);
-            const sortedAbsen = Object.entries(statsAbsen).sort(([, a], [, b]) => b - a).slice(0, 5);
+            // Top 5 Absensi (s + i + a)
+            const topAbsensi = allKaryawan.map(nama => ({
+                nama,
+                jumlah: (stats.karyawanStats[nama]?.s || 0) + (stats.karyawanStats[nama]?.i || 0) + (stats.karyawanStats[nama]?.a || 0)
+            })).sort((a, b) => b.jumlah - a.jumlah).slice(0, 5);
 
-            // Render Top 5 Keterlambatan
-            const containerTelat = document.getElementById('top-keterlambatan');
-            containerTelat.innerHTML = '';
-            if (sortedTelat.length === 0) {
-                containerTelat.innerHTML = '<p class="text-gray-500">Tidak ada data keterlambatan.</p>';
-            } else {
-                sortedTelat.forEach(([nama, jumlah], index) => {
-                    containerTelat.innerHTML += `
-                        <div class="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
-                            <div class="flex items-center">
-                                <span class="w-6 h-6 bg-yellow-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
-                                <span class="font-medium text-gray-800">${nama}</span>
-                            </div>
-                            <span class="text-yellow-600 font-bold">${jumlah}x</span>
-                        </div>
-                    `;
-                });
-            }
-
-            // Render Top 5 Absensi
-            const containerAbsen = document.getElementById('top-absensi');
-            containerAbsen.innerHTML = '';
-            if (sortedAbsen.length === 0) {
-                containerAbsen.innerHTML = '<p class="text-gray-500">Tidak ada data absensi.</p>';
-            } else {
-                sortedAbsen.forEach(([nama, jumlah], index) => {
-                    containerAbsen.innerHTML += `
-                        <div class="flex justify-between items-center p-3 bg-red-50 rounded-lg">
-                            <div class="flex items-center">
-                                <span class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
-                                <span class="font-medium text-gray-800">${nama}</span>
-                            </div>
-                            <span class="text-red-600 font-bold">${jumlah}x</span>
-                        </div>
-                    `;
-                });
-            }
+            const containerAbsensi = document.getElementById('top-absensi');
+            containerAbsensi.innerHTML = '';
+            topAbsensi.forEach((item, index) => {
+                if (item.jumlah === 0) return; // Sembunyikan jika 0
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center p-3 bg-red-50 rounded-lg';
+                div.innerHTML = `
+                    <div class="flex items-center">
+                        <span class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
+                        <span class="font-medium">${item.nama}</span>
+                    </div>
+                    <span class="text-red-600 font-bold">${item.jumlah}x</span>
+                `;
+                containerAbsensi.appendChild(div);
+            });
         }
-        
+
         /**
-         * Update Peta Panas (Heatmap) Kinerja Karyawan.
+         * Membuat tabel heatmap berdasarkan data dan rentang tanggal.
          */
-        function updateHeatmap(data, karyawanList) {
+        function buatHeatmap(filteredData, uniqueDates) {
             const container = document.getElementById('heatmap-container');
             container.innerHTML = ''; // Kosongkan
-            
-            if (karyawanList.length === 0) {
-                 container.innerHTML = '<p class="text-gray-500">Tidak ada data karyawan untuk ditampilkan.</p>';
-                 return;
-            }
-
-            // Cari tahu hari apa saja yang ada di data (1-31)
-            const daysSet = new Set();
-            data.forEach(d => {
-                daysSet.add(new Date(d.tanggal).getUTCDate());
-            });
-            // Jika tidak ada data sama sekali, tampilkan 31 hari
-            if (daysSet.size === 0) {
-                for(let i=1; i<=31; i++) daysSet.add(i);
-            }
-            const days = Array.from(daysSet).sort((a, b) => a - b);
-
-
-            // Buat Map data untuk pencarian cepat: dataMap['id_karyawan']['hari'] = 'status'
-            const dataMap = {};
-            data.forEach(d => {
-                const hari = new Date(d.tanggal).getUTCDate();
-                if (!dataMap[d.id]) dataMap[d.id] = {};
-                
-                let statusKelas = 'status-kosong';
-                if (d.status === 'Hadir' && d.keterangan === 'Tepat Waktu') statusKelas = 'status-hadir';
-                else if (d.status === 'Hadir' && d.keterangan === 'Terlambat') statusKelas = 'status-telat';
-                else if (d.status === 'Sakit') statusKelas = 'status-sakit';
-                else if (d.status === 'Izin') statusKelas = 'status-izin';
-                else if (d.status === 'Absen' && d.keterangan === 'Tidak Absen') statusKelas = 'status-absen';
-                
-                dataMap[d.id][hari] = statusKelas;
-            });
-
-            // Buat tabel heatmap
             const table = document.createElement('table');
             table.className = 'min-w-full';
-            
-            // Header (Tanggal)
-            let headerHTML = '<thead><tr><th class="sticky left-0 bg-white p-2 text-left text-sm font-semibold text-gray-700 min-w-[150px]">Karyawan</th>';
-            days.forEach(day => {
-                headerHTML += `<th class="p-1 text-center text-xs text-gray-600 font-medium w-8">${String(day).padStart(2, '0')}</th>`;
-            });
-            headerHTML += '</tr></thead>';
-            table.innerHTML += headerHTML;
 
-            // Body (Karyawan)
-            let bodyHTML = '<tbody>';
-            karyawanList.forEach(karyawan => {
-                bodyHTML += '<tr class="border-t border-gray-200">';
-                bodyHTML += `<td class="sticky left-0 bg-white p-2 text-sm font-medium text-gray-800 whitespace-nowrap">${karyawan.nama}</td>`;
-                
-                days.forEach(day => {
-                    const statusKelas = dataMap[karyawan.id] ? (dataMap[karyawan.id][day] || 'status-kosong') : 'status-kosong';
-                    const title = `${karyawan.nama} - Hari ${day}: ${statusKelas.split('-')[1] || 'Kosong'}`;
-                    
-                    bodyHTML += `
-                        <td class="p-1">
-                            <div class="heatmap-cell mx-auto ${statusKelas}" title="${title}"></div>
-                        </td>
-                    `;
-                });
-                bodyHTML += '</tr>';
+            // Header tanggal
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = '<th class="text-left p-2 font-semibold text-gray-700 min-w-32 sticky-th">Karyawan</th>';
+            uniqueDates.forEach(date => {
+                const th = document.createElement('th');
+                th.className = 'text-center p-1 text-xs text-gray-600 font-medium';
+                th.textContent = dayjs(date).format('DD/MM');
+                headerRow.appendChild(th);
             });
-            bodyHTML += '</tbody>';
-            table.innerHTML += bodyHTML;
+            table.appendChild(headerRow);
+
+            // Baris karyawan
+            allKaryawan.forEach(nama => {
+                const row = document.createElement('tr');
+                row.className = 'border-t';
+                
+                const nameCell = document.createElement('td');
+                nameCell.className = 'p-2 font-medium text-gray-800 sticky-th';
+                nameCell.textContent = nama;
+                row.appendChild(nameCell);
+
+                // Buat map status per tanggal untuk karyawan ini
+                const statusMap = new Map();
+                if (filteredData[nama]) { // Pastikan data ada
+                    filteredData[nama].forEach(day => {
+                        statusMap.set(day.date, day.status);
+                    });
+                }
+
+                uniqueDates.forEach(date => {
+                    const cell = document.createElement('td');
+                    cell.className = 'p-1 text-center';
+                    
+                    const statusDiv = document.createElement('div');
+                    statusDiv.className = 'heatmap-cell mx-auto cursor-pointer';
+                    
+                    const status = statusMap.get(date); // 'v', 'T', 'x', 's', 'i', 'a', or undefined
+                    
+                    let title = `${nama} - ${dayjs(date).format('DD MMM')}: `;
+                    switch (status) {
+                        case 'v':
+                            statusDiv.classList.add('status-v');
+                            title += 'Hadir';
+                            break;
+                        case 'T':
+                            statusDiv.classList.add('status-T');
+                            title += 'Telat';
+                            break;
+                        case 'x':
+                            statusDiv.classList.add('status-x');
+                            title += 'Lokasi Tidak Sesuai';
+                            break;
+                        case 's':
+                            statusDiv.classList.add('status-s');
+                            title += 'Sakit';
+                            break;
+                        case 'i':
+                            statusDiv.classList.add('status-i');
+                            title += 'Izin';
+                            break;
+                        case 'a':
+                            statusDiv.classList.add('status-a');
+                            title += 'Alpha';
+                            break;
+                        default:
+                            statusDiv.classList.add('bg-gray-100'); // Kosong
+                            title += 'Tidak Ada Data';
+                    }
+                    statusDiv.title = title;
+                    cell.appendChild(statusDiv);
+                    row.appendChild(cell);
+                });
+                
+                table.appendChild(row);
+            });
 
             container.appendChild(table);
         }
 
         // --- INISIALISASI ---
-        document.addEventListener('DOMContentLoaded', initDashboard);
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mulai ambil data
+            fetchMasterData();
+        });
 
     </script>
 </body>
