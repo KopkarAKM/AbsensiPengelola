@@ -1,343 +1,706 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Kehadiran Karyawan</title>
-    <!-- 1. Memuat Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 2. Memuat Font Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* 3. Menerapkan Font Inter sebagai font default */
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        /* Style untuk scrollbar yang lebih minimalis (opsional) */
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #cbd5e1; /* cool-gray-400 */
-            border-radius: 10px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8; /* cool-gray-500 */
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Absensi Google Sheet</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+      body {
+          font-family: 'Inter', sans-serif;
+          box-sizing: border-box;
+      }
+      .metric-card {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      .metric-card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      }
+      .heatmap-cell {
+          width: 25px;
+          height: 25px;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+          position: relative;
+      }
+      .heatmap-cell:hover {
+          transform: scale(1.2);
+          z-index: 10;
+      }
+      
+      /* Definisi Status
+        v = Hadir Tepat (Hadir, Lokasi Benar)
+        x = Hadir Salah Lokasi (Hadir, Lokasi Salah)
+        t = Telat Tepat (Telat, Lokasi Benar)
+        tx = Telat Salah Lokasi (Telat, Lokasi Salah)
+        s = Sakit (dengan lampiran, dianggap lokasi benar)
+        sx = Sakit (tanpa lampiran, dianggap lokasi salah)
+        i = Izin (dengan lampiran, dianggap lokasi benar)
+        ix = Izin (tanpa lampiran, dianggap lokasi salah)
+        a = Tidak Absen (Alpa)
+      */
+
+      /* Hadir */
+      .status-hadir { background-color: #10b981; } /* v */
+      .status-hadir-salah-lokasi { background-color: #84cc16; } /* x */
+      
+      /* Telat */
+      .status-telat { background-color: #f59e0b; } /* t */
+      .status-telat-salah-lokasi { background-color: #fb923c; } /* tx */
+
+      /* Sakit */
+      .status-sakit { background-color: #ef4444; } /* s */
+      .status-sakit-salah-lokasi { background-color: #f87171; } /* sx */
+
+      /* Izin */
+      .status-izin { background-color: #8b5cf6; } /* i */
+      .status-izin-salah-lokasi { background-color: #a78bfa; } /* ix */
+
+      /* Tidak Absen */
+      .status-tidak-absen { background-color: #6b7280; } /* a */
+      
+      .loading {
+          display: inline-block;
+          width: 20px;
+          height: 20px;
+          border: 3px solid #f3f3f3;
+          border-top: 3px solid #3498db;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+      }
+
+      /* Style untuk font Inter */
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  </style>
 </head>
-<body class="bg-gray-100 text-gray-900">
-
-    <div class="container mx-auto max-w-7xl p-4 md:p-8">
-        <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Dashboard Kehadiran Karyawan</h1>
-            <p class="text-gray-600 mt-1">Ringkasan performa kehadiran tim (Periode 30 Hari)</p>
-        </header>
-
-        <!-- 4. Kontainer Ringkasan Total (Summary Cards) -->
-        <div id="summary-container" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-            <!-- Kartu ringkasan akan dimasukkan oleh JavaScript di sini -->
-            <div class="bg-white p-4 rounded-lg shadow-md animate-pulse">
-                <div class="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div class="h-8 bg-gray-300 rounded w-1/2"></div>
-            </div>
-            <!-- Placeholder lain (opsional, untuk loading state) -->
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+  <div class="container mx-auto px-4 sm:px-6 py-8">
+    
+    <!-- Header -->
+    <header class="mb-8">
+      <h1 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-2" id="dashboard-title">Dashboard Absensi Karyawan</h1>
+      <p class="text-gray-600" id="company-subtitle">Data Real-time dari Google Sheet</p>
+    </header>
+    
+    <!-- Loading State -->
+    <div id="loading-state" class="text-center py-12">
+      <div class="loading mx-auto mb-4"></div>
+      <p class="text-gray-600">Memuat data dari Google Sheet...</p>
+    </div>
+    
+    <!-- Error State -->
+    <div id="error-state" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+      <div class="flex items-center">
+        <div class="text-red-500 text-3xl mr-4">⚠️</div>
+        <div>
+          <h3 class="text-red-800 font-semibold text-lg">Gagal Memuat Data</h3>
+          <p class="text-red-600" id="error-message">Tidak dapat mengakses Google Sheet. Pastikan sheet dapat diakses publik.</p>
         </div>
-
-        <!-- 5. Kontainer Utama (Tabel Rincian dan Legenda) -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- 5a. Tabel Rincian Karyawan (Kolom Utama) -->
-            <div class="lg:col-span-2 bg-white rounded-lg shadow-md overflow-hidden">
-                <h2 class="text-xl font-semibold p-4 border-b border-gray-200">Rincian per Karyawan</h2>
-                <!-- Wrapper untuk horizontal scroll di layar kecil -->
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-max">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="py-3 px-4 text-left text-sm font-semibold text-gray-600 uppercase tracking-wider">Nama Karyawan</th>
-                                <th class="py-3 px-4 text-center text-sm font-semibold text-gray-600 uppercase tracking-wider">Hadir</th>
-                                <th class="py-3 px-4 text-center text-sm font-semibold text-gray-600 uppercase tracking-wider">Telat</th>
-                                <th class="py-3 px-4 text-center text-sm font-semibold text-gray-600 uppercase tracking-wider">Sakit</th>
-                                <th class="py-3 px-4 text-center text-sm font-semibold text-gray-600 uppercase tracking-wider">Izin</th>
-                                <th class="py-3 px-4 text-center text-sm font-semibold text-gray-600 uppercase tracking-wider">Alpha</th>
-                                <th class="py-3 px-4 text-center text-sm font-semibold text-red-600 uppercase tracking-wider">Masuk Tdk Sesuai</th>
-                                <th class="py-3 px-4 text-center text-sm font-semibold text-red-600 uppercase tracking-wider">Pulang Tdk Sesuai</th>
-                            </tr>
-                        </thead>
-                        <tbody id="dashboard-body" class="divide-y divide-gray-200">
-                            <!-- Data baris karyawan akan dimasukkan oleh JavaScript di sini -->
-                            <tr>
-                                <td colspan="8" class="py-8 px-4 text-center text-gray-500">
-                                    Memuat data...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+      </div>
+    </div>
+    
+    <!-- Main Dashboard Content -->
+    <div id="dashboard-content" class="hidden">
+      
+      <!-- Papan Skor Utama -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-6">📊 Papan Skor Utama (Bulan Ini)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          
+          <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Tingkat Kehadiran</p>
+                <p class="text-4xl font-bold" id="tingkat-kehadiran">-</p>
+              </div>
+              <div class="text-5xl opacity-70">🎯</div>
             </div>
-
-            <!-- 5b. Legenda Keterangan (Kolom Samping) -->
-            <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <h3 class="text-lg font-semibold mb-4 border-b pb-2">Keterangan Kode Absensi</h3>
-                    <ul class="space-y-2 text-sm">
-                        <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-green-500 mr-3 flex-shrink-0"></span>
-                            <div><strong>v</strong>: Hadir (Lokasi Sesuai)</div>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-green-200 border border-green-400 mr-3 flex-shrink-0"></span>
-                            <div><strong>x</strong>: Hadir (Lokasi Tdk Sesuai)</div>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-yellow-500 mr-3 flex-shrink-0"></span>
-                            <div><strong>T</strong>: Telat (Lokasi Sesuai)</div>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-yellow-200 border border-yellow-400 mr-3 flex-shrink-0"></span>
-                            <div><strong>tx</strong>: Telat (Lokasi Tdk Sesuai)</div>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-blue-500 mr-3 flex-shrink-0"></span>
-                            <div><strong>s</strong>: Sakit (Lokasi Sesuai)</div>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-blue-200 border border-blue-400 mr-3 flex-shrink-0"></span>
-                            <div><strong>sx</strong>: Sakit (Lokasi Tdk Sesuai)</div>
-                        </li>
-                         <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-purple-500 mr-3 flex-shrink-0"></span>
-                            <div><strong>i</strong>: Izin (Lokasi Sesuai)</div>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-purple-200 border border-purple-400 mr-3 flex-shrink-0"></span>
-                            <div><strong>ix</strong>: Izin (Lokasi Tdk Sesuai)</div>
-                        </li>
-                        <li class="flex items-center">
-                            <span class="w-5 h-5 rounded-full bg-red-500 mr-3 flex-shrink-0"></span>
-                            <div><strong>a</strong>: Alpha (Tidak Masuk)</div>
-                        </li>
-                    </ul>
-                </div>
+          </div>
+          
+          <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Total Keterlambatan</p>
+                <p class="text-4xl font-bold" id="total-telat">-</p>
+              </div>
+              <div class="text-5xl opacity-70">⏰</div>
             </div>
+          </div>
+          
+          <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Total Tidak Hadir</p>
+                <p class="text-4xl font-bold" id="total-tidak-hadir">-</p>
+              </div>
+              <div class="text-5xl opacity-70">📋</div>
+            </div>
+          </div>
+          
+          <div class="metric-card text-white p-6 rounded-xl shadow-lg">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-blue-100 text-sm font-medium uppercase tracking-wider">Karyawan Terbaik</p>
+                <p class="text-xl font-bold" id="karyawan-terbaik">-</p>
+              </div>
+              <div class="text-5xl opacity-70">⭐</div>
+            </div>
+          </div>
+          
+        </div>
+      </section>
+      
+      <!-- Grafik Tren -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-6">📈 Analisis Kehadiran</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Grafik Status Kehadiran -->
+          <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Distribusi Status Kehadiran</h3>
+            <canvas id="chartStatus" width="400" height="200"></canvas>
+          </div>
+          
+          <!-- Grafik Akurasi Lokasi -->
+          <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Akurasi Lokasi Absen</h3>
+            <canvas id="chartLokasi" width="400" height="200"></canvas>
+          </div>
+          
+        </div>
+      </section>
+      
+      <!-- Daftar Karyawan -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-6">👥 Performa Karyawan</h2>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Top Performer -->
+          <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center"><span class="text-green-500 mr-2 text-2xl">⭐</span> Top 5 Karyawan Terbaik</h3>
+            <div class="space-y-3" id="top-performer">
+              <!-- Data akan diisi oleh JavaScript -->
+            </div>
+          </div>
+          
+          <!-- Perlu Perhatian -->
+          <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center"><span class="text-red-500 mr-2 text-2xl">⚠️</span> 5 Karyawan Perlu Perhatian</h3>
+            <div class="space-y-3" id="need-attention">
+              <!-- Data akan diisi oleh JavaScript -->
+            </div>
+          </div>
+          
+        </div>
+      </section>
+      
+      <!-- Peta Panas Kehadiran -->
+      <section class="mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-6">🔥 Peta Panas Kehadiran</h2>
+        <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
+          
+          <!-- Legenda Heatmap -->
+          <div class="mb-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-sm">
+            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-hadir"></div><span>Hadir</span></div>
+            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-hadir-salah-lokasi"></div><span>Hadir (Salah Lokasi)</span></div>
+            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-telat"></div><span>Telat</span></div>
+            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-telat-salah-lokasi"></div><span>Telat (Salah Lokasi)</span></div>
+            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-sakit"></div><span>Sakit</span></div>
+            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-izin"></div><span>Izin</span></div>
+            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-tidak-absen"></div><span>Tidak Absen</span></div>
+          </div>
+          
+          <div id="heatmap-container">
+            <!-- Heatmap akan diisi oleh JavaScript -->
+          </div>
+          
+        </div>
+      </section>
+      
+    </div>
+  </div>
+  
+  <script>
+      // --- KONFIGURASI ---
+      const defaultConfig = {
+          // ID Google Sheet Anda sudah terpasang di sini
+          sheet_id: '1wCVC1jC6cSp5jIRUxTlDLOM-CyUNnSuTe8tegh3Y8QA',
+          // Nama sheet (tab) yang berisi data
+          sheet_name: 'Data',
+          // Judul Dashboard
+          company_name: 'Dashboard Absensi Karyawan'
+      };
 
-        </div> <!-- end grid cols-3 -->
+      let currentData = null;
+      let charts = {};
 
-    </div> <!-- end container -->
+      // Fungsi untuk mengambil data dari Google Sheet
+      async function fetchSheetData(sheetId, sheetName) {
+          try {
+              // Menggunakan endpoint gviz/tq untuk mendapatkan JSON
+              const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}`;
+              const response = await fetch(url);
+              
+              if (!response.ok) {
+                  throw new Error(`Google Sheet merespon dengan status: ${response.status}`);
+              }
+              
+              const text = await response.text();
+              
+              // Membersihkan response JSONP dari Google
+              const jsonText = text.substring(47).slice(0, -2);
+              const data = JSON.parse(jsonText);
+              
+              if (data.status === 'error') {
+                  throw new Error(`Error dari Google Sheet API: ${data.errors.map(e => e.detailed_message).join(', ')}`);
+              }
 
-    <script>
-        // --- DATA CONTOH (MOCK DATA) ---
-        // Anda bisa mengganti ini dengan data yang diambil dari Google Sheet Anda.
-        // Array harus memiliki panjang yang sama (misal, 30 hari).
-        
-        // HAPUS ATAU KOMENTARI BLOK dataKaryawan INI
-        /*
-        const dataKaryawan = [
-          {
-            nama: "Alhamdi",
-            absenMasuk:  ['v', 'v', 'T', 'a', 's', 'v', 'x', 'v', 'v', 'v', 'v', 'v', 'T', 'a', 's', 'v', 'x', 'v', 'v', 'v', 'v', 'v', 'T', 'a', 's', 'v', 'x', 'v', 'v', 'i'],
-            absenPulang: ['v', 'v', 'v', 'a', 'a', 'v', 'x', 'v', 'v', 'v', 'v', 'v', 'v', 'a', 'a', 'v', 'x', 'v', 'v', 'v', 'v', 'v', 'v', 'a', 'a', 'v', 'x', 'v', 'v', 'a']
-          },
-          {
-            nama: "Budi Santoso",
-            absenMasuk:  ['v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v'],
-            absenPulang: ['v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v']
-          },
-          {
-            nama: "Citra Lestari",
-            absenMasuk:  ['a', 'a', 'a', 'a', 'a', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'tx', 'tx', 's', 'i', 'v', 'v', 'v', 'v', 'v', 'v'],
-            absenPulang: ['a', 'a', 'a', 'a', 'a', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'x', 'x', 'a', 'a', 'v', 'v', 'v', 'v', 'v', 'v']
-          },
-          {
-            nama: "Doni Hidayat",
-            absenMasuk:  ['v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'i', 'i', 'ix', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v'],
-            absenPulang: ['v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'a', 'a', 'a', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v']
-          },
-          {
-            nama: "Elisa Putri",
-            absenMasuk:  ['x', 'x', 'x', 'x', 'x', 'x', 'x', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'T', 'T', 'T', 'T', 'T', 'v', 'v', 'v', 'v', 'v'],
-            absenPulang: ['x', 'x', 'x', 'x', 'x', 'x', 'x', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v']
+              return parseSheetData(data);
+          } catch (error) {
+              console.error('Error fetching sheet data:', error);
+              throw new Error(`Gagal mengambil data. Pastikan Google Sheet Anda sudah di "Publish to the web" dan nama sheet ("${sheetName}") sudah benar.`);
           }
-        ];
-        */
+      }
 
-        // GANTIKAN DENGAN URL WEB APP ANDA DARI LANGKAH 2
-        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbz6YajqskEFxko5jVtpK8RS3oI-LUHbaLCUmgCFa-xHZIWSGrxJfB66ng0O0HqR4Arf-g/exec";
+      // Parse data dari Google Sheet
+      function parseSheetData(data) {
+          const rows = data.table.rows;
+          const employees = [];
+          
+          if (!rows || rows.length < 2) {
+              throw new Error("Data tidak ditemukan atau format sheet salah. Pastikan baris pertama adalah header.");
+          }
 
+          // Skip header row (i = 0), mulai dari data (i = 1)
+          for (let i = 1; i < rows.length; i++) {
+              const row = rows[i];
+              // Pastikan baris dan kolom nama ada
+              if (!row.c || !row.c[0] || typeof row.c[0].v !== 'string' || row.c[0].v.trim() === '') {
+                  continue; // Lewati baris jika tidak ada nama
+              }
+              
+              const employee = {
+                  nama: row.c[0].v.trim(),
+                  absenMasuk: [],
+                  absenPulang: []
+              };
+              
+              // Parse absen masuk (kolom 1-31, B-AF)
+              for (let j = 1; j <= 31; j++) {
+                  let status = (row.c[j] && row.c[j].v) ? String(row.c[j].v).toLowerCase().trim() : '';
+                  employee.absenMasuk.push(status);
+              }
+              
+              // Parse absen pulang (kolom 32-62, AG-BI)
+              for (let j = 32; j <= 62; j++) {
+                  let status = (row.c[j] && row.c[j].v) ? String(row.c[j].v).toLowerCase().trim() : '';
+                  employee.absenPulang.push(status);
+              }
+              
+              employees.push(employee);
+          }
+          
+          if (employees.length === 0) {
+              throw new Error("Tidak ada data karyawan yang valid ditemukan di sheet.");
+          }
+          
+          return employees;
+      }
 
-        // --- FUNGSI UNTUK MEMPROSES DATA DAN RENDER DASHBOARD ---
-        
-        /**
-         * Fungsi untuk membuat satu kartu ringkasan
-         */
-        function createSummaryCard(label, value, colorClass = 'text-gray-900') {
-            return `
-                <div class="bg-white p-4 rounded-lg shadow-md">
-                    <p class="text-sm font-medium text-gray-500 mb-1">${label}</p>
-                    <p class="text-3xl font-bold ${colorClass}">${value}</p>
-                </div>
-            `;
-        }
+      // Analisis data absensi
+      function analyzeData(employees) {
+          const stats = {
+              totalHadir: 0,
+              totalTelat: 0,
+              totalSakit: 0,
+              totalIzin: 0,
+              totalTidakAbsen: 0,
+              totalLokasiBenar: 0,
+              totalLokasiSalah: 0,
+              employeeStats: {}
+          };
 
-        /**
-         * Fungsi utama untuk memuat dan memproses data
-         */
-        async function loadDashboard() {
-            const tableBody = document.getElementById('dashboard-body');
-            const summaryContainer = document.getElementById('summary-container');
-            
-            // Kosongkan kontainer
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="8" class="py-8 px-4 text-center text-gray-500">
-                        Mengambil data dari Google Sheet...
-                    </td>
-                </tr>
-            `;
-            summaryContainer.innerHTML = ''; // Kosongkan summary cards
+          employees.forEach(emp => {
+              stats.employeeStats[emp.nama] = {
+                  hadir: 0, telat: 0, sakit: 0, izin: 0, tidakAbsen: 0,
+                  lokasiBenar: 0, lokasiSalah: 0, score: 0
+              };
 
-            let dataKaryawan = [];
+              // Kita hanya menganalisis 'absenMasuk' (kolom B-AF) untuk statistik utama
+              emp.absenMasuk.forEach(status => {
+                  if (!status || status === 'h') return; // 'h' adalah hari libur, diabaikan
+                  
+                  const empStat = stats.employeeStats[emp.nama];
+                  
+                  switch (status) {
+                      case 'v': // Hadir Tepat
+                          stats.totalHadir++;
+                          empStat.hadir++;
+                          stats.totalLokasiBenar++;
+                          empStat.lokasiBenar++;
+                          empStat.score += 10;
+                          break;
+                      case 'x': // Hadir Salah Lokasi
+                          stats.totalHadir++;
+                          empStat.hadir++;
+                          stats.totalLokasiSalah++;
+                          empStat.lokasiSalah++;
+                          empStat.score += 7; // Skor lebih rendah
+                          break;
+                      case 't': // Telat Tepat
+                          stats.totalTelat++;
+                          empStat.telat++;
+                          stats.totalLokasiBenar++;
+                          empStat.lokasiBenar++;
+                          empStat.score += 5; // Skor lebih rendah
+                          break;
+                      case 'tx': // Telat Salah Lokasi
+                          stats.totalTelat++;
+                          empStat.telat++;
+                          stats.totalLokasiSalah++;
+                          empStat.lokasiSalah++;
+                          empStat.score += 3; // Skor sangat rendah
+                          break;
+                      case 's': // Sakit (dianggap lokasi benar)
+                          stats.totalSakit++;
+                          empStat.sakit++;
+                          stats.totalLokasiBenar++;
+                          empStat.lokasiBenar++;
+                          empStat.score += 2; // Skor netral
+                          break;
+                      case 'sx': // Sakit (salah lokasi/tanpa surat)
+                          stats.totalSakit++;
+                          empStat.sakit++;
+                          stats.totalLokasiSalah++;
+                          empStat.lokasiSalah++;
+                          empStat.score += 1; // Skor rendah
+                          break;
+                      case 'i': // Izin (dianggap lokasi benar)
+                          stats.totalIzin++;
+                          empStat.izin++;
+                          stats.totalLokasiBenar++;
+                          empStat.lokasiBenar++;
+                          empStat.score += 2; // Skor netral
+                          break;
+                      case 'ix': // Izin (salah lokasi/tanpa surat)
+                          stats.totalIzin++;
+                          empStat.izin++;
+                          stats.totalLokasiSalah++;
+                          empStat.lokasiSalah++;
+                          empStat.score += 1; // Skor rendah
+                          break;
+                      case 'a': // Alpa / Tidak Absen
+                          stats.totalTidakAbsen++;
+                          empStat.tidakAbsen++;
+                          empStat.score -= 5; // Skor minus
+                          break;
+                  }
+              });
+          });
 
-            // --- BAGIAN BARU: Ambil data dari Google Sheet ---
-            try {
-                const response = await fetch(WEB_APP_URL);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                dataKaryawan = await response.json();
+          return stats;
+      }
 
-                // Cek jika data kosong atau ada error dari Apps Script
-                if (!dataKaryawan || dataKaryawan.length === 0 || dataKaryawan.error) {
-                    tableBody.innerHTML = `
-                        <tr>
-                            <td colspan="8" class="py-8 px-4 text-center text-red-500">
-                                Gagal memuat data. (Error: ${dataKaryawan.error || 'Data kosong'})
-                            </td>
-                        </tr>
-                    `;
-                    return;
-                }
+      // Update papan skor
+      function updateScoreboard(stats) {
+          const totalKehadiran = stats.totalHadir + stats.totalTelat;
+          const totalAbsensiValid = totalKehadiran + stats.totalSakit + stats.totalIzin + stats.totalTidakAbsen;
+          
+          // Tingkat kehadiran = (Hadir + Telat) / Total Hari Kerja (Hadir + Telat + Sakit + Izin + Alpa)
+          const tingkatKehadiran = totalAbsensiValid > 0 
+              ? Math.round((totalKehadiran / totalAbsensiValid) * 100) 
+              : 0;
 
-            } catch (error) {
-                console.error("Fetch error:", error);
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="py-8 px-4 text-center text-red-500">
-                            Gagal terhubung ke Google Sheet. Periksa URL Web App dan koneksi internet.
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            // --- AKHIR BAGIAN BARU ---
+          document.getElementById('tingkat-kehadiran').textContent = tingkatKehadiran + '%';
+          document.getElementById('total-telat').textContent = stats.totalTelat;
+          
+          // Total Tidak Hadir = Sakit + Izin + Alpa
+          document.getElementById('total-tidak-hadir').textContent = stats.totalSakit + stats.totalIzin + stats.totalTidakAbsen;
 
+          // Cari karyawan terbaik
+          let bestEmployee = '';
+          let bestScore = -Infinity;
+          Object.keys(stats.employeeStats).forEach(nama => {
+              if (stats.employeeStats[nama].score > bestScore) {
+                  bestScore = stats.employeeStats[nama].score;
+                  bestEmployee = nama;
+              }
+          });
+          document.getElementById('karyawan-terbaik').textContent = bestEmployee || '-';
+      }
 
-            // Kosongkan tabel lagi untuk diisi data
-            tableBody.innerHTML = '';
+      // Buat grafik status
+      function createStatusChart(stats) {
+          if (charts.status) charts.status.destroy();
+          
+          const ctx = document.getElementById('chartStatus').getContext('2d');
+          charts.status = new Chart(ctx, {
+              type: 'doughnut',
+              data: {
+                  labels: ['Hadir Tepat Waktu', 'Telat', 'Sakit', 'Izin', 'Tidak Absen'],
+                  datasets: [{
+                      data: [
+                          stats.totalHadir,
+                          stats.totalTelat,
+                          stats.totalSakit,
+                          stats.totalIzin,
+                          stats.totalTidakAbsen
+                      ],
+                      backgroundColor: [
+                          '#10b981', // Hadir
+                          '#f59e0b', // Telat
+                          '#ef4444', // Sakit
+                          '#8b5cf6', // Izin
+                          '#6b7280'  // Tidak Absen
+                      ]
+                  }]
+              },
+              options: {
+                  responsive: true,
+                  plugins: {
+                      legend: {
+                          position: 'bottom'
+                      }
+                  }
+              }
+          });
+      }
 
-            // Variabel untuk menyimpan total keseluruhan
-            let grandTotal = {
-                hadir: 0,
-                telat: 0,
-                sakit: 0,
-                izin: 0,
-                alpha: 0,
-                masukTdkSesuai: 0,
-                pulangTdkSesuai: 0
-            };
+      // Buat grafik lokasi
+      function createLocationChart(stats) {
+          if (charts.location) charts.location.destroy();
+          
+          const ctx = document.getElementById('chartLokasi').getContext('2d');
+          charts.location = new Chart(ctx, {
+              type: 'pie',
+              data: {
+                  labels: ['Lokasi Benar', 'Lokasi Salah'],
+                  datasets: [{
+                      data: [stats.totalLokasiBenar, stats.totalLokasiSalah],
+                      backgroundColor: ['#10b981', '#ef4444']
+                  }]
+              },
+              options: {
+                  responsive: true,
+                  plugins: {
+                      legend: {
+                          position: 'bottom'
+                      }
+                  }
+              }
+          });
+      }
 
-            // const totalHari = dataKaryawan[0] ? dataKaryawan[0].absenMasuk.length : 30;
-            // Cek jika dataKaryawan tidak kosong sebelum mengakses [0]
-            if (dataKaryawan.length === 0) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="8" class="py-8 px-4 text-center text-gray-500">
-                            Tidak ada data karyawan ditemukan di Google Sheet.
-                        </td>
-                    </tr>
-                `;
-                return;
-            }
-            
-            const totalHari = dataKaryawan[0].absenMasuk.length;
+      // Buat daftar top performer
+      function createTopLists(stats) {
+          // Top 5 performer
+          const topPerformers = Object.keys(stats.employeeStats)
+              .map(nama => ({
+                  nama,
+                  score: stats.employeeStats[nama].score
+              }))
+              .sort((a, b) => b.score - a.score) // Urutkan dari skor tertinggi
+              .slice(0, 5);
 
+          const topContainer = document.getElementById('top-performer');
+          topContainer.innerHTML = '';
+          if (topPerformers.length === 0) {
+              topContainer.innerHTML = '<p class="text-gray-500">Data tidak cukup.</p>';
+          } else {
+              topPerformers.forEach((emp, index) => {
+                  const div = document.createElement('div');
+                  div.className = 'flex justify-between items-center p-3 bg-green-50 rounded-lg';
+                  div.innerHTML = `
+                      <div class="flex items-center">
+                          <span class="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
+                          <span class="font-medium">${emp.nama}</span>
+                      </div>
+                      <span class="text-green-600 font-bold">${emp.score} poin</span>
+                  `;
+                  topContainer.appendChild(div);
+              });
+          }
 
-            // 1. Proses setiap karyawan
-            dataKaryawan.forEach(karyawan => {
-                // Statistik untuk karyawan ini
-                const stats = { v: 0, x: 0, T: 0, tx: 0, s: 0, sx: 0, i: 0, ix: 0, a: 0, pulangTdkSesuai: 0 };
+          // Yang perlu perhatian (skor terendah atau masalah terbanyak)
+          const needAttention = Object.keys(stats.employeeStats)
+              .map(nama => ({
+                  nama,
+                  masalah: stats.employeeStats[nama].tidakAbsen + stats.employeeStats[nama].telat,
+                  score: stats.employeeStats[nama].score
+              }))
+              .sort((a, b) => b.masalah - a.masalah || a.score - b.score) // Prioritaskan masalah terbanyak, lalu skor terendah
+              .slice(0, 5);
 
-                // Loop sebanyak jumlah hari (panjang array)
-                for (let d = 0; d < totalHari; d++) {
-                    const statusMasuk = karyawan.absenMasuk[d];
-                    const statusPulang = karyawan.absenPulang[d];
+          const attentionContainer = document.getElementById('need-attention');
+          attentionContainer.innerHTML = '';
+          if (needAttention.length === 0) {
+              attentionContainer.innerHTML = '<p class="text-gray-500">Tidak ada data.</p>';
+          } else {
+              needAttention.forEach((emp, index) => {
+                  const div = document.createElement('div');
+                  div.className = 'flex justify-between items-center p-3 bg-red-50 rounded-lg';
+                  div.innerHTML = `
+                      <div class="flex items-center">
+                          <span class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
+                          <span class="font-medium">${emp.nama}</span>
+                      </div>
+                      <span class="text-red-600 font-bold">${emp.masalah} masalah</span>
+                  `;
+                  attentionContainer.appendChild(div);
+              });
+          }
+      }
 
-                    // Hitung status masuk berdasarkan legenda
-                    if (stats.hasOwnProperty(statusMasuk)) {
-                        stats[statusMasuk]++;
-                    }
-                    
-                    // Hitung status pulang (hanya jika tidak sesuai)
-                    // Pastikan statusPulang ada sebelum dicek
-                    if (statusPulang && statusPulang === 'x') {
-                        stats.pulangTdkSesuai++;
-                    }
-                }
+      // Buat heatmap
+      function createHeatmap(employees) {
+          const container = document.getElementById('heatmap-container');
+          container.innerHTML = '';
+          
+          const table = document.createElement('table');
+          table.className = 'min-w-full border-collapse';
 
-                // 2. Hitung total gabungan (misal 'hadir' = v + x)
-                const hadir = stats.v + stats.x;
-                const telat = stats.T + stats.tx;
-                const sakit = stats.s + stats.sx;
-                const izin = stats.i + stats.ix;
-                const alpha = stats.a;
-                // Hitung total ketidaksesuaian lokasi MASUK
-                const masukTdkSesuai = stats.x + stats.tx + stats.sx + stats.ix;
+          // Header tanggal
+          const thead = document.createElement('thead');
+          const headerRow = document.createElement('tr');
+          headerRow.innerHTML = '<th class="sticky left-0 bg-white p-2 text-left font-semibold text-gray-700 min-w-32 z-10">Karyawan</th>';
+          for (let day = 1; day <= 31; day++) {
+              const th = document.createElement('th');
+              th.className = 'p-1 text-xs text-gray-600 font-medium';
+              th.textContent = day;
+              headerRow.appendChild(th);
+          }
+          thead.appendChild(headerRow);
+          table.appendChild(thead);
 
-                // 3. Tambahkan ke Grand Total
-                grandTotal.hadir += hadir;
-                grandTotal.telat += telat;
-                grandTotal.sakit += sakit;
-                grandTotal.izin += izin;
-                grandTotal.alpha += alpha;
-                grandTotal.masukTdkSesuai += masukTdkSesuai;
-                grandTotal.pulangTdkSesuai += stats.pulangTdkSesuai;
+          // Baris karyawan
+          const tbody = document.createElement('tbody');
+          employees.forEach(emp => {
+              const row = document.createElement('tr');
+              row.className = 'border-t border-gray-200';
+              
+              const nameCell = document.createElement('td');
+              nameCell.className = 'sticky left-0 bg-white p-2 font-medium text-gray-800 text-sm whitespace-nowrap z-10';
+              nameCell.textContent = emp.nama;
+              row.appendChild(nameCell);
 
-                // 4. Render baris tabel untuk karyawan ini
-                tableBody.innerHTML += `
-                  <tr class="hover:bg-gray-50 transition-colors duration-150">
-                    <td class="py-3 px-4 text-left font-medium text-gray-800">${karyawan.nama}</td>
-                    <td class="py-3 px-4 text-center text-green-600 font-semibold">${hadir}</td>
-                    <td class="py-3 px-4 text-center text-yellow-600 font-semibold">${telat}</td>
-                    <td class="py-3 px-4 text-center text-blue-600 font-semibold">${sakit}</td>
-                    <td class="py-3 px-4 text-center text-purple-600 font-semibold">${izin}</td>
-                    <td class="py-3 px-4 text-center text-red-600 font-semibold">${alpha}</td>
-                    <td class="py-3 px-4 text-center text-red-500">${masukTdkSesuai}</td>
-                    <td class="py-3 px-4 text-center text-red-500">${stats.pulangTdkSesuai}</td>
-                  </tr>
-                `;
-            });
+              for (let day = 0; day < 31; day++) {
+                  const cell = document.createElement('td');
+                  cell.className = 'p-1 text-center';
+                  
+                  const statusDiv = document.createElement('div');
+                  statusDiv.className = 'heatmap-cell mx-auto cursor-pointer';
+                  
+                  const status = emp.absenMasuk[day] || '';
+                  let statusText = '';
+                  let statusClass = '';
+                  
+                  switch (status) {
+                      case 'v':  statusClass = 'status-hadir'; statusText = 'Hadir'; break;
+                      case 'x':  statusClass = 'status-hadir-salah-lokasi'; statusText = 'Hadir (Salah Lokasi)'; break;
+                      case 't':  statusClass = 'status-telat'; statusText = 'Telat'; break;
+                      case 'tx': statusClass = 'status-telat-salah-lokasi'; statusText = 'Telat (Salah Lokasi)'; break;
+                      case 's':  statusClass = 'status-sakit'; statusText = 'Sakit'; break;
+                      case 'sx': statusClass = 'status-sakit-salah-lokasi'; statusText = 'Sakit (Salah Lokasi)'; break;
+                      case 'i':  statusClass = 'status-izin'; statusText = 'Izin'; break;
+                      case 'ix': statusClass = 'status-izin-salah-lokasi'; statusText = 'Izin (Salah Lokasi)'; break;
+                      case 'a':  statusClass = 'status-tidak-absen'; statusText = 'Tidak Absen'; break;
+                      case 'h':  statusClass = 'bg-gray-200'; statusText = 'Hari Libur'; break;
+                      default:   statusClass = 'bg-gray-100'; statusText = 'Tidak Ada Data';
+                  }
+                  
+                  statusDiv.classList.add(statusClass);
+                  statusDiv.title = `${emp.nama} - Hari ${day + 1}: ${statusText}`;
+                  cell.appendChild(statusDiv);
+                  row.appendChild(cell);
+              }
+              
+              tbody.appendChild(row);
+          });
+          table.appendChild(tbody);
+          container.appendChild(table);
+      }
 
-            // 5. Render Kartu Ringkasan (Grand Totals)
-            summaryContainer.innerHTML += createSummaryCard('Total Hadir', grandTotal.hadir, 'text-green-600');
-            summaryContainer.innerHTML += createSummaryCard('Total Telat', grandTotal.telat, 'text-yellow-600');
-            summaryContainer.innerHTML += createSummaryCard('Total Sakit', grandTotal.sakit, 'text-blue-600');
-            summaryContainer.innerHTML += createSummaryCard('Total Izin', grandTotal.izin, 'text-purple-600');
-            summaryContainer.innerHTML += createSummaryCard('Total Alpha', grandTotal.alpha, 'text-red-600');
-            
-            // Gabungkan ketidaksesuaian lokasi
-            const totalTdkSesuai = grandTotal.masukTdkSesuai + grandTotal.pulangTdkSesuai;
-            summaryContainer.innerHTML += createSummaryCard('Lokasi Tdk Sesuai', totalTdkSesuai, 'text-red-500');
+      // Load dan render dashboard
+      async function loadDashboard() {
+          const config = window.elementSdk?.config || defaultConfig;
+          const sheetId = config.sheet_id || defaultConfig.sheet_id;
+          const sheetName = config.sheet_name || defaultConfig.sheet_name;
+          const companyName = config.company_name || defaultConfig.company_name;
 
-        }
+          document.getElementById('dashboard-title').textContent = companyName;
+          document.getElementById('company-subtitle').textContent = `Data Real-time dari Google Sheet`;
 
-        // Panggil fungsi utama saat halaman selesai dimuat
-        window.onload = loadDashboard;
+          try {
+              document.getElementById('loading-state').style.display = 'block';
+              document.getElementById('error-state').style.display = 'none';
+              document.getElementById('dashboard-content').style.display = 'none';
 
-    </script>
+              const employees = await fetchSheetData(sheetId, sheetName);
+              currentData = employees;
+              
+              const stats = analyzeData(employees);
+              
+              updateScoreboard(stats);
+              createStatusChart(stats);
+              createLocationChart(stats);
+              createTopLists(stats);
+              createHeatmap(employees);
+              
+              document.getElementById('loading-state').style.display = 'none';
+              document.getElementById('dashboard-content').style.display = 'block';
+              
+          } catch (error)
+ {
+              console.error("Dashboard Gagal Dimuat:", error);
+              document.getElementById('loading-state').style.display = 'none';
+              document.getElementById('error-state').style.display = 'block';
+              document.getElementById('error-message').textContent = error.message;
+          }
+      }
+      
+      // --- Inisialisasi Element SDK (Jika ada) ---
+      // Kode ini menangani jika dijalankan di dalam platform
+      async function onConfigChange(config) {
+          // Muat ulang dashboard jika konfigurasi berubah
+          await loadDashboard();
+      }
+
+      function mapToCapabilities(config) {
+          return {
+              recolorables: [], borderables: [], fontEditable: undefined, fontSizeable: undefined
+          };
+      }
+
+      function mapToEditPanelValues(config) {
+          return new Map([
+              ['sheet_id', config.sheet_id || defaultConfig.sheet_id],
+              ['sheet_name', config.sheet_name || defaultConfig.sheet_name],
+              ['company_name', config.company_name || defaultConfig.company_name]
+          ]);
+      }
+      
+      // Initialize
+      document.addEventListener('DOMContentLoaded', async () => {
+          if (window.elementSdk) {
+              // Inisialisasi jika SDK ditemukan
+              await window.elementSdk.init({
+                  defaultConfig,
+                  onConfigChange,
+                  mapToCapabilities,
+                  mapToEditPanelValues
+              });
+          }
+          
+          // Muat dashboard saat halaman siap
+          await loadDashboard();
+      });
+  </script>
 </body>
 </html>
-
