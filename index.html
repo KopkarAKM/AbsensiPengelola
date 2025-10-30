@@ -245,7 +245,8 @@
       async function fetchSheetData(sheetId, sheetName) {
           try {
               // Menggunakan endpoint gviz/tq untuk mendapatkan JSON
-              const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}`;
+              // Menambahkan &headers=0 untuk memaksa API mengembalikan semua barj, tanpa menebak header
+              const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}&headers=0`;
               const response = await fetch(url);
               
               if (!response.ok) {
@@ -279,8 +280,8 @@
           }
 
           // Skip header row (i = 0), mulai dari data (i = 1)
-          // Berdasarkan gambar Anda, data karyawan mulai dari baris 5 (index 4)
-          for (let i = 4; i < rows.length; i++) {
+          // Berdasarkan gambar Anda, data karyawan mulai dari baris 6 (index 5)
+          for (let i = 5; i < rows.length; i++) {
               const row = rows[i];
               // Pastikan baris dan kolom nama ada (Kolom A, index 0)
               if (!row.c || !row.c[0] || typeof row.c[0].v !== 'string' || row.c[0].v.trim() === '') {
@@ -707,4 +708,6 @@
   </script>
 </body>
 </html>
+
+
 
