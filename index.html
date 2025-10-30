@@ -138,7 +138,29 @@
         /*
         const dataKaryawan = [
           {
-...
+            nama: "Alhamdi",
+            absenMasuk:  ['v', 'v', 'T', 'a', 's', 'v', 'x', 'v', 'v', 'v', 'v', 'v', 'T', 'a', 's', 'v', 'x', 'v', 'v', 'v', 'v', 'v', 'T', 'a', 's', 'v', 'x', 'v', 'v', 'i'],
+            absenPulang: ['v', 'v', 'v', 'a', 'a', 'v', 'x', 'v', 'v', 'v', 'v', 'v', 'v', 'a', 'a', 'v', 'x', 'v', 'v', 'v', 'v', 'v', 'v', 'a', 'a', 'v', 'x', 'v', 'v', 'a']
+          },
+          {
+            nama: "Budi Santoso",
+            absenMasuk:  ['v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v'],
+            absenPulang: ['v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v']
+          },
+          {
+            nama: "Citra Lestari",
+            absenMasuk:  ['a', 'a', 'a', 'a', 'a', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'tx', 'tx', 's', 'i', 'v', 'v', 'v', 'v', 'v', 'v'],
+            absenPulang: ['a', 'a', 'a', 'a', 'a', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'x', 'x', 'a', 'a', 'v', 'v', 'v', 'v', 'v', 'v']
+          },
+          {
+            nama: "Doni Hidayat",
+            absenMasuk:  ['v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'i', 'i', 'ix', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v'],
+            absenPulang: ['v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'a', 'a', 'a', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v']
+          },
+          {
+            nama: "Elisa Putri",
+            absenMasuk:  ['x', 'x', 'x', 'x', 'x', 'x', 'x', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'T', 'T', 'T', 'T', 'T', 'v', 'v', 'v', 'v', 'v'],
+            absenPulang: ['x', 'x', 'x', 'x', 'x', 'x', 'x', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v', 'v']
           }
         ];
         */
@@ -150,7 +172,15 @@
         // --- FUNGSI UNTUK MEMPROSES DATA DAN RENDER DASHBOARD ---
         
         /**
-...
+         * Fungsi untuk membuat satu kartu ringkasan
+         */
+        function createSummaryCard(label, value, colorClass = 'text-gray-900') {
+            return `
+                <div class="bg-white p-4 rounded-lg shadow-md">
+                    <p class="text-sm font-medium text-gray-500 mb-1">${label}</p>
+                    <p class="text-3xl font-bold ${colorClass}">${value}</p>
+                </div>
+            `;
         }
 
         /**
@@ -211,7 +241,12 @@
 
             // Variabel untuk menyimpan total keseluruhan
             let grandTotal = {
-...
+                hadir: 0,
+                telat: 0,
+                sakit: 0,
+                izin: 0,
+                alpha: 0,
+                masukTdkSesuai: 0,
                 pulangTdkSesuai: 0
             };
 
@@ -233,7 +268,14 @@
 
             // 1. Proses setiap karyawan
             dataKaryawan.forEach(karyawan => {
-...
+                // Statistik untuk karyawan ini
+                const stats = { v: 0, x: 0, T: 0, tx: 0, s: 0, sx: 0, i: 0, ix: 0, a: 0, pulangTdkSesuai: 0 };
+
+                // Loop sebanyak jumlah hari (panjang array)
+                for (let d = 0; d < totalHari; d++) {
+                    const statusMasuk = karyawan.absenMasuk[d];
+                    const statusPulang = karyawan.absenPulang[d];
+
                     // Hitung status masuk berdasarkan legenda
                     if (stats.hasOwnProperty(statusMasuk)) {
                         stats[statusMasuk]++;
@@ -247,6 +289,55 @@
                 }
 
                 // 2. Hitung total gabungan (misal 'hadir' = v + x)
-...
+                const hadir = stats.v + stats.x;
+                const telat = stats.T + stats.tx;
+                const sakit = stats.s + stats.sx;
+                const izin = stats.i + stats.ix;
+                const alpha = stats.a;
+                // Hitung total ketidaksesuaian lokasi MASUK
+                const masukTdkSesuai = stats.x + stats.tx + stats.sx + stats.ix;
 
+                // 3. Tambahkan ke Grand Total
+                grandTotal.hadir += hadir;
+                grandTotal.telat += telat;
+                grandTotal.sakit += sakit;
+                grandTotal.izin += izin;
+                grandTotal.alpha += alpha;
+                grandTotal.masukTdkSesuai += masukTdkSesuai;
+                grandTotal.pulangTdkSesuai += stats.pulangTdkSesuai;
+
+                // 4. Render baris tabel untuk karyawan ini
+                tableBody.innerHTML += `
+                  <tr class="hover:bg-gray-50 transition-colors duration-150">
+                    <td class="py-3 px-4 text-left font-medium text-gray-800">${karyawan.nama}</td>
+                    <td class="py-3 px-4 text-center text-green-600 font-semibold">${hadir}</td>
+                    <td class="py-3 px-4 text-center text-yellow-600 font-semibold">${telat}</td>
+                    <td class="py-3 px-4 text-center text-blue-600 font-semibold">${sakit}</td>
+                    <td class="py-3 px-4 text-center text-purple-600 font-semibold">${izin}</td>
+                    <td class="py-3 px-4 text-center text-red-600 font-semibold">${alpha}</td>
+                    <td class="py-3 px-4 text-center text-red-500">${masukTdkSesuai}</td>
+                    <td class="py-3 px-4 text-center text-red-500">${stats.pulangTdkSesuai}</td>
+                  </tr>
+                `;
+            });
+
+            // 5. Render Kartu Ringkasan (Grand Totals)
+            summaryContainer.innerHTML += createSummaryCard('Total Hadir', grandTotal.hadir, 'text-green-600');
+            summaryContainer.innerHTML += createSummaryCard('Total Telat', grandTotal.telat, 'text-yellow-600');
+            summaryContainer.innerHTML += createSummaryCard('Total Sakit', grandTotal.sakit, 'text-blue-600');
+            summaryContainer.innerHTML += createSummaryCard('Total Izin', grandTotal.izin, 'text-purple-600');
+            summaryContainer.innerHTML += createSummaryCard('Total Alpha', grandTotal.alpha, 'text-red-600');
+            
+            // Gabungkan ketidaksesuaian lokasi
+            const totalTdkSesuai = grandTotal.masukTdkSesuai + grandTotal.pulangTdkSesuai;
+            summaryContainer.innerHTML += createSummaryCard('Lokasi Tdk Sesuai', totalTdkSesuai, 'text-red-500');
+
+        }
+
+        // Panggil fungsi utama saat halaman selesai dimuat
+        window.onload = loadDashboard;
+
+    </script>
+</body>
+</html>
 
