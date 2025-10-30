@@ -233,7 +233,7 @@
           // ID Google Sheet Anda sudah terpasang di sini
           sheet_id: '1wCVC1jC6cSp5jIRUxTlDLOM-CyUNnSuTe8tegh3Y8QA',
           // Nama sheet (tab) yang berisi data
-          sheet_name: 'Data',
+          sheet_name: 'Laporan',
           // Judul Dashboard
           company_name: 'Dashboard Absensi Karyawan'
       };
@@ -265,7 +265,7 @@
               return parseSheetData(data);
           } catch (error) {
               console.error('Error fetching sheet data:', error);
-              throw new Error(`Gagal mengambil data. Pastikan Google Sheet Anda sudah di "Publish to the web" dan nama sheet ("${sheetName}") sudah benar.`);
+                  throw new Error(`Gagal mengambil data. Pastikan Google Sheet Anda sudah di "Publish to the web" dan nama sheet ("${sheetName}") sudah benar.`);
           }
       }
 
@@ -279,9 +279,10 @@
           }
 
           // Skip header row (i = 0), mulai dari data (i = 1)
-          for (let i = 1; i < rows.length; i++) {
+          // Berdasarkan gambar Anda, data karyawan mulai dari baris 5 (index 4)
+          for (let i = 4; i < rows.length; i++) {
               const row = rows[i];
-              // Pastikan baris dan kolom nama ada
+              // Pastikan baris dan kolom nama ada (Kolom A, index 0)
               if (!row.c || !row.c[0] || typeof row.c[0].v !== 'string' || row.c[0].v.trim() === '') {
                   continue; // Lewati baris jika tidak ada nama
               }
@@ -292,14 +293,16 @@
                   absenPulang: []
               };
               
-              // Parse absen masuk (kolom 1-31, B-AF)
-              for (let j = 1; j <= 31; j++) {
+              // Parse absen masuk (Kolom D-AH, index 3-33)
+              // 31 hari
+              for (let j = 3; j <= 33; j++) {
                   let status = (row.c[j] && row.c[j].v) ? String(row.c[j].v).toLowerCase().trim() : '';
                   employee.absenMasuk.push(status);
               }
               
-              // Parse absen pulang (kolom 32-62, AG-BI)
-              for (let j = 32; j <= 62; j++) {
+              // Parse absen pulang (Kolom AI-BM, index 34-64)
+              // 31 hari
+              for (let j = 34; j <= 64; j++) {
                   let status = (row.c[j] && row.c[j].v) ? String(row.c[j].v).toLowerCase().trim() : '';
                   employee.absenPulang.push(status);
               }
@@ -704,3 +707,4 @@
   </script>
 </body>
 </html>
+
