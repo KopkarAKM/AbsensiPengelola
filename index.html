@@ -127,7 +127,7 @@
         </div>
 
         <!-- Grafik Baru -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <!-- Grafik Tren Keterlambatan Harian -->
           <div class="bg-white p-6 rounded-xl shadow-lg">
             <h3 class="text-lg font-semibold text-gray-800 mb-4">📈 Tren Keterlambatan Harian</h3>
@@ -140,10 +140,16 @@
             <canvas id="chartLocation" height="200"></canvas>
           </div>
 
-          <!-- [BARU] Grafik Tren Tidak Absen -->
+          <!-- [DIUBAH] Grafik Tren Tidak Hadir (Alpa) -->
           <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">🚫 Tren Tidak Absen (Alpa)</h3>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">🚫 Tren Tidak Hadir (Alpa)</h3>
             <canvas id="chartAbsentTrend" height="200"></canvas>
+          </div>
+
+          <!-- [BARU] Grafik Tren Lupa Absen -->
+          <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">🔔 Tren Lupa Absen</h3>
+            <canvas id="chartLupaTrend" height="200"></canvas>
           </div>
         </div>
       </section>
@@ -305,101 +311,126 @@
               totalTidakAbsen: 0,
               totalLokasiBenar: 0,
               totalLokasiSalah: 0,
-              dailyLateTrend: Array(31).fill(0), // [BARU] Untuk tren keterlambatan
-              dailyAbsentTrend: Array(31).fill(0), // [BARU] Untuk tren tidak absen (Alpa)
+              totalLupaAbsen: 0, // [BARU] Statistik Lupa Absen (1x)
+              dailyLateTrend: Array(31).fill(0),
+              dailyAbsentTrend: Array(31).fill(0), // (Alpa / 2x)
+              dailyLupaTrend: Array(31).fill(0), // [BARU] (Lupa Absen / 1x)
               employeeStats: {}
           };
 
           employees.forEach(emp => {
               stats.employeeStats[emp.nama] = {
                   hadir: 0, telat: 0, sakit: 0, izin: 0, tidakAbsen: 0,
+                  lupaAbsen: 0, // [BARU]
                   lokasiBenar: 0, lokasiSalah: 0, score: 0
               };
 
-              // Kita hanya menganalisis 'absenMasuk' (kolom B-AF) untuk statistik utama
-              emp.absenMasuk.forEach((status, day) => {
-                  if (!status || status === 'h') return; // 'h' adalah hari libur, diabaikan
-                  
+              // --- LOGIKA ANALISIS DIROMBAK ---
+              // Loop 31 hari untuk setiap karyawan
+              for (let day = 0; day < 31; day++) {
                   const empStat = stats.employeeStats[emp.nama];
-                  const statusMasuk = status || ''; // Ambil status masuk
-                  const statusPulang = emp.absenPulang[day] || ''; // Ambil status pulang untuk hari yang sama
-                  
-                  switch (statusMasuk) {
-                      case 'v': // Hadir Tepat
-                          stats.totalHadir++;
-                          empStat.hadir++;
-                          stats.totalLokasiBenar++;
-                          empStat.lokasiBenar++;
-                          empStat.score += 10;
-                          break;
-                      case 'x': // Hadir Salah Lokasi
-                          stats.totalHadir++;
-                          empStat.hadir++;
-                          stats.totalLokasiSalah++;
-                          empStat.lokasiSalah++;
-                          empStat.score += 7; // Skor lebih rendah
-                          break;
-                      case 't': // Telat Tepat
-                          stats.totalTelat++;
-                          empStat.telat++;
-                          stats.totalLokasiBenar++;
-                          empStat.lokasiBenar++;
-                          empStat.score += 5; // Skor lebih rendah
-                          stats.dailyLateTrend[day]++; // [BARU] Tambahkan ke tren
-                          break;
-                      case 'tx': // Telat Salah Lokasi
-                          stats.totalTelat++;
-                          empStat.telat++;
-                          stats.totalLokasiSalah++;
-                          empStat.lokasiSalah++;
-                          empStat.score += 3; // Skor sangat rendah
-                          stats.dailyLateTrend[day]++; // [BARU] Tambahkan ke tren
-                          break;
-                      case 's': // Sakit (dianggap lokasi benar)
-                          stats.totalSakit++;
-                          empStat.sakit++;
-                          stats.totalLokasiBenar++;
-                          empStat.lokasiBenar++;
-                          empStat.score += 2; // Skor netral
-                          break;
-                      case 'sx': // Sakit (salah lokasi/tanpa surat)
-                          stats.totalSakit++;
-                          empStat.sakit++;
-                          stats.totalLokasiSalah++;
-                          empStat.lokasiSalah++;
-                          empStat.score += 1; // Skor rendah
-                          break;
-                      case 'i': // Izin (dianggap lokasi benar)
-                          stats.totalIzin++;
-                          empStat.izin++;
-                          stats.totalLokasiBenar++;
-                          empStat.lokasiBenar++;
-                          empStat.score += 2; // Skor netral
-                          break;
-                      case 'ix': // Izin (salah lokasi/tanpa surat)
-                          stats.totalIzin++;
-                          empStat.izin++;
-                          stats.totalLokasiSalah++;
-                          empStat.lokasiSalah++;
-                          empStat.score += 1; // Skor rendah
-                          break;
-                      case 'a': // Alpa / Tidak Absen
-                      case '': // String kosong juga dihitung sebagai Tidak Absen
-                          
-                          // --- LOGIKA BARU ---
-                          // Hanya hitung "Tidak Absen" (Alpa) jika KEDUA kolom (Masuk & Pulang) kosong.
-                          if ((statusMasuk === 'a' || statusMasuk === '') && (statusPulang === 'a' || statusPulang === '')) {
-                              stats.totalTidakAbsen++;
-                              empStat.tidakAbsen++;
-                              stats.dailyAbsentTrend[day]++; // [BARU] Tambahkan ke tren Alpa
-                              empStat.score -= 5; // Skor minus
-                          }
-                          // Jika hanya 1 kolom yang kosong (lupa absen), tidak dihitung sebagai alpa.
-                          
-                          break;
+                  const statusMasuk = emp.absenMasuk[day] || '';
+                  const statusPulang = emp.absenPulang[day] || '';
+
+                  // Hentikan jika hari libur (misal 'h' di data masuk)
+                  if (statusMasuk === 'h') continue;
+
+                  // Definisikan kondisi ada/tidak
+                  // (Status ada jika BUKAN 'a' DAN BUKAN '')
+                  const masukAda = statusMasuk !== 'a' && statusMasuk !== '';
+                  const pulangAda = statusPulang !== 'a' && statusPulang !== '';
+
+                  // --- Pengecekan Berbasis Prioritas ---
+
+                  // 1. Cek TIDAK HADIR (ALPA) (Keduanya Kosong)
+                  if (!masukAda && !pulangAda) {
+                      stats.totalTidakAbsen++;
+                      empStat.tidakAbsen++;
+                      stats.dailyAbsentTrend[day]++; // Tambah ke tren Alpa (2x)
+                      empStat.score -= 5;
+                      continue; // Hari ini selesai dianalisis, lanjut ke hari berikutnya
                   }
-              });
-          });
+
+                  // 2. Cek LUPA ABSEN (Salah Satu Kosong)
+                  if (masukAda && !pulangAda) { // Lupa absen pulang
+                      stats.totalLupaAbsen++;
+                      empStat.lupaAbsen++;
+                      stats.dailyLupaTrend[day]++; // Tambah ke tren Lupa Absen (1x)
+                      empStat.score += 1; // Skor rendah karena lupa
+                  } else if (!masukAda && pulangAda) { // Lupa absen masuk
+                      stats.totalLupaAbsen++;
+                      empStat.lupaAbsen++;
+                      stats.dailyLupaTrend[day]++; // Tambah ke tren Lupa Absen (1x)
+                      empStat.score += 1; // Skor rendah karena lupa
+                  }
+
+                  // 3. Analisis Status Masuk (Hanya jika 'masukAda')
+                  // Jika 'masukAda' false, bagian ini dilewati (karena sudah ditangani #1 atau #2)
+                  if (masukAda) {
+                      switch (statusMasuk) {
+                          case 'v': // Hadir Tepat
+                              stats.totalHadir++;
+                              empStat.hadir++;
+                              stats.totalLokasiBenar++;
+                              empStat.lokasiBenar++;
+                              empStat.score += 10;
+                              break;
+                          case 'x': // Hadir Salah Lokasi
+                              stats.totalHadir++;
+                              empStat.hadir++;
+                              stats.totalLokasiSalah++;
+                              empStat.lokasiSalah++;
+                              empStat.score += 7;
+                              break;
+                          case 't': // Telat Tepat
+                              stats.totalTelat++;
+                              empStat.telat++;
+                              stats.totalLokasiBenar++;
+                              empStat.lokasiBenar++;
+                              empStat.score += 5;
+                              stats.dailyLateTrend[day]++;
+                              break;
+                          case 'tx': // Telat Salah Lokasi
+                              stats.totalTelat++;
+                              empStat.telat++;
+                              stats.totalLokasiSalah++;
+                              empStat.lokasiSalah++;
+                              empStat.score += 3;
+                              stats.dailyLateTrend[day]++;
+                              break;
+                          case 's': // Sakit (benar)
+                              stats.totalSakit++;
+                              empStat.sakit++;
+                              stats.totalLokasiBenar++;
+                              empStat.lokasiBenar++;
+                              empStat.score += 2;
+                              break;
+                          case 'sx': // Sakit (salah)
+                              stats.totalSakit++;
+                              empStat.sakit++;
+                              stats.totalLokasiSalah++;
+                              empStat.lokasiSalah++;
+                              empStat.score += 1;
+                              break;
+                          case 'i': // Izin (benar)
+                              stats.totalIzin++;
+                              empStat.izin++;
+                              stats.totalLokasiBenar++;
+                              empStat.lokasiBenar++;
+                              empStat.score += 2;
+                              break;
+                          case 'ix': // Izin (salah)
+                              stats.totalIzin++;
+                              empStat.izin++;
+                              stats.totalLokasiSalah++;
+                              empStat.lokasiSalah++;
+                              empStat.score += 1;
+                              break;
+                          // Kasus 'a' dan '' sudah ditangani di Logika #1 dan #2
+                      }
+                  }
+              } // Selesai loop harian
+          }); // Selesai loop karyawan
 
           return stats;
       }
@@ -524,6 +555,46 @@
           });
       }
 
+      // [BARU] Buat grafik tren LUPA ABSEN (1x)
+      function createLupaTrendChart(stats) {
+          if (charts.lupa) charts.lupa.destroy(); // Hancurkan chart lama
+          
+          const ctx = document.getElementById('chartLupaTrend').getContext('2d');
+          const labels = Array.from({ length: 31 }, (_, i) => i + 1); // Label 1-31
+          
+          charts.lupa = new Chart(ctx, {
+              type: 'line',
+              data: {
+                  labels: labels,
+                  datasets: [{
+                      label: 'Total Lupa Absen (1x)',
+                      data: stats.dailyLupaTrend,
+                      backgroundColor: 'rgba(139, 92, 246, 0.2)', // Warna ungu
+                      borderColor: 'rgba(139, 92, 246, 1)',
+                      borderWidth: 2,
+                      tension: 0.3,
+                      fill: true,
+                      pointBackgroundColor: 'rgba(139, 92, 246, 1)'
+                  }]
+              },
+              options: {
+                  responsive: true,
+                  plugins: {
+                      legend: { display: false }
+                  },
+                  scales: {
+                      y: {
+                          beginAtZero: true,
+                          ticks: {
+                              stepSize: 1
+                          }
+                      }
+                  }
+              }
+          });
+      }
+
+
       // Buat daftar top performer
       function createTopLists(stats) {
           // Top 5 performer
@@ -535,7 +606,8 @@
                   telat: stats.employeeStats[nama].telat,
                   sakit: stats.employeeStats[nama].sakit,
                   izin: stats.employeeStats[nama].izin,
-                  tidakAbsen: stats.employeeStats[nama].tidakAbsen
+                  tidakAbsen: stats.employeeStats[nama].tidakAbsen,
+                  lupaAbsen: stats.employeeStats[nama].lupaAbsen // [BARU]
               }))
               .sort((a, b) => b.score - a.score) // Urutkan dari skor tertinggi
               .slice(0, 5);
@@ -559,6 +631,7 @@
                          <span class="block text-red-600 font-bold">${emp.tidakAbsen} T.Hadir</span>
                          <span class="block text-purple-600 font-bold">${emp.izin} Izin</span>
                          <span class="block text-red-500 font-bold">${emp.sakit} Sakit</span>
+                         <span class="block text-blue-500 font-bold">${emp.lupaAbsen} Lupa</span>
                       </div>
                   `;
                   topContainer.appendChild(div);
@@ -577,6 +650,7 @@
                       telat: empStats.telat,
                       sakit: empStats.sakit,
                       izin: empStats.izin,
+                      lupaAbsen: empStats.lupaAbsen, // [BARU]
                       score: empStats.score
                   };
               })
@@ -599,6 +673,7 @@
                       <div class="text-xs text-right space-y-1">
                          <span class="block text-red-600 font-bold">${emp.tidakAbsen} T.Hadir</span>
                          <span class="block text-yellow-600 font-bold">${emp.telat} Telat</span>
+                         <span class="block text-blue-500 font-bold">${emp.lupaAbsen} Lupa</span>
                          <span class="block text-green-600 font-bold">${emp.hadir} Hadir</span>
                          <span class="block text-purple-600 font-bold">${emp.izin} Izin</span>
                          <span class="block text-red-500 font-bold">${emp.sakit} Sakit</span>
@@ -669,6 +744,7 @@
                   statusDivMasuk.className = 'heatmap-cell mx-auto cursor-pointer';
                   
                   const status = emp.absenMasuk[day] || '';
+                  const statusPulang = emp.absenPulang[day] || ''; // [BARU] Ambil status pulang
                   let statusText = '';
                   let statusClass = '';
                   
@@ -683,8 +759,15 @@
                       case 'ix': statusClass = 'status-izin-salah-lokasi'; statusText = 'Izin (Salah Lokasi)'; break;
                       case 'a':  // 'a' eksplisit
                       case '':   // String kosong (implisit 'a')
-                          statusClass = 'status-tidak-absen'; 
-                          statusText = 'Tidak Absen'; 
+                          // [DIUBAH] Cek logika Alpa (2x) vs Lupa (1x)
+                          if( (status === 'a' || status === '') && (statusPulang === 'a' || statusPulang === '')) {
+                              statusClass = 'status-tidak-absen'; 
+                              statusText = 'Tidak Hadir (Alpa)';
+                          } else {
+                              // Jika hanya masuk yang kosong (lupa absen masuk)
+                              statusClass = 'bg-blue-200'; // Warna Lupa Absen (biru muda)
+                              statusText = 'Lupa Absen Masuk';
+                          }
                           break;
                       case 'h':  statusClass = 'bg-gray-200'; statusText = 'Hari Libur'; break;
                       default:   statusClass = 'bg-gray-100'; statusText = 'Tidak Ada Data';
@@ -703,6 +786,7 @@
                   statusDivPulang.className = 'heatmap-cell mx-auto cursor-pointer';
 
                   const statusP = emp.absenPulang[day] || '';
+                  const statusM = emp.absenMasuk[day] || ''; // [BARU] Ambil status masuk
                   let statusTextP = '';
                   let statusClassP = '';
 
@@ -711,8 +795,14 @@
                       statusClassP = 'status-pulang';
                       statusTextP = 'Pulang';
                   } else {
-                      statusClassP = 'bg-gray-100';
-                      statusTextP = 'Tidak Ada Data';
+                      // [DIUBAH] Cek logika Lupa Absen Pulang
+                      if( (statusP === 'a' || statusP === '') && (statusM !== 'a' && statusM !== '') && statusM !== 'h' ) {
+                          statusClassP = 'bg-blue-200'; // Warna Lupa Absen (biru muda)
+                          statusTextP = 'Lupa Absen Pulang';
+                      } else {
+                          statusClassP = 'bg-gray-100';
+                          statusTextP = 'Tidak Ada Data';
+                      }
                   }
 
                   statusDivPulang.classList.add(statusClassP);
@@ -763,7 +853,8 @@
           // 2. Render ulang semua modul dengan data yang sudah difilter
           createLateTrendChart(stats);
           createLocationChart(stats);
-          createAbsentTrendChart(stats); // [BARU]
+          createAbsentTrendChart(stats); 
+          createLupaTrendChart(stats); // [BARU]
           createTopLists(stats);
           createHeatmap(filteredEmployees); // Heatmap perlu data mentah karyawan
       }
@@ -844,5 +935,6 @@
   </script>
 </body>
 </html>
+
 
 
