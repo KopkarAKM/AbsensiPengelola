@@ -20,8 +20,8 @@
           box-shadow: 0 10px 20px rgba(0,0,0,0.1);
       }
       .heatmap-cell {
-          width: 25px;
-          height: 25px;
+          width: 20px; /* Diperkecil dari 25px */
+          height: 20px; /* Diperkecil dari 25px */
           border-radius: 4px;
           transition: all 0.2s ease;
           position: relative;
@@ -61,6 +61,9 @@
 
       /* Tidak Absen */
       .status-tidak-absen { background-color: #6b7280; } /* a */
+      
+      /* Pulang */
+      .status-pulang { background-color: #60a5fa; } /* v (Pulang) */
       
       .loading {
           display: inline-block;
@@ -215,6 +218,7 @@
             <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-sakit"></div><span>Sakit</span></div>
             <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-izin"></div><span>Izin</span></div>
             <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-tidak-absen"></div><span>Tidak Absen</span></div>
+            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-pulang"></div><span>Pulang</span></div>
           </div>
           
           <div id="heatmap-container">
@@ -244,9 +248,11 @@
       // Fungsi untuk mengambil data dari Google Sheet
       async function fetchSheetData(sheetId, sheetName) {
           try {
+              // Menambahkan parameter cache buster unik (_=timestamp) untuk memastikan data selalu baru
+              const cacheBuster = `&_=${new Date().getTime()}`;
               // Menggunakan endpoint gviz/tq untuk mendapatkan JSON
               // Menambahkan &headers=0 untuk memaksa API mengembalikan semua barj, tanpa menebak header
-              const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}&headers=0`;
+              const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}&headers=0${cacheBuster}`;
               const response = await fetch(url);
               
               if (!response.ok) {
@@ -294,16 +300,16 @@
                   absenPulang: []
               };
               
-              // Parse absen masuk (Kolom D-AH, index 3-33)
-              // 31 hari
-              for (let j = 3; j <= 33; j++) {
+              // Parse absen masuk (Kolom D, F, H, ... BH -- index 3, 5, 7, ... 59)
+              // Kita melompat (j += 2) untuk melewati kolom "Pulang"
+              for (let j = 3; j <= 59; j += 2) {
                   let status = (row.c[j] && row.c[j].v) ? String(row.c[j].v).toLowerCase().trim() : '';
                   employee.absenMasuk.push(status);
               }
               
-              // Parse absen pulang (Kolom AI-BM, index 34-64)
-              // 31 hari
-              for (let j = 34; j <= 64; j++) {
+              // Parse absen pulang (Kolom E, G, I, ... BI -- index 4, 6, 8, ... 60)
+              // Kita melompat (j += 2) untuk melewati kolom "Masuk"
+              for (let j = 4; j <= 60; j += 2) {
                   let status = (row.c[j] && row.c[j].v) ? String(row.c[j].v).toLowerCase().trim() : '';
                   employee.absenPulang.push(status);
               }
@@ -570,20 +576,37 @@
           const table = document.createElement('table');
           table.className = 'min-w-full border-collapse';
 
-          // Header tanggal
+          // Header tanggal (Baris 1)
           const thead = document.createElement('thead');
           const headerRow = document.createElement('tr');
-          headerRow.innerHTML = '<th class="sticky left-0 bg-white p-2 text-left font-semibold text-gray-700 min-w-32 z-10">Karyawan</th>';
+          // Buat header Karyawan sticky dan span 2 baris
+          headerRow.innerHTML = '<th class="sticky left-0 bg-white p-2 text-left font-semibold text-gray-700 min-w-32 z-20" rowspan="2">Karyawan</th>';
           for (let day = 1; day <= 31; day++) {
               const th = document.createElement('th');
-              th.className = 'p-1 text-xs text-gray-600 font-medium';
+              th.className = 'p-1 text-xs text-gray-600 font-medium text-center';
+              th.colSpan = 2; // Setiap tanggal mencakup 2 kolom (D dan P)
               th.textContent = day;
               headerRow.appendChild(th);
           }
           thead.appendChild(headerRow);
+          
+          // Sub-header D/P (Baris 2)
+          const subHeaderRow = document.createElement('tr');
+          for (let day = 1; day <= 31; day++) {
+              const thD = document.createElement('th');
+              thD.className = 'p-1 text-xs text-gray-500 font-medium bg-gray-50';
+              thD.textContent = 'D';
+              subHeaderRow.appendChild(thD);
+              
+              const thP = document.createElement('th');
+              thP.className = 'p-1 text-xs text-gray-500 font-medium bg-gray-50';
+              thP.textContent = 'P';
+              subHeaderRow.appendChild(thP);
+          }
+          thead.appendChild(subHeaderRow);
           table.appendChild(thead);
 
-          // Baris karyawan
+          // Baris karyawan (tbody)
           const tbody = document.createElement('tbody');
           employees.forEach(emp => {
               const row = document.createElement('tr');
@@ -594,12 +617,15 @@
               nameCell.textContent = emp.nama;
               row.appendChild(nameCell);
 
+              // Loop 31 hari, buat 2 sel per hari (Datang dan Pulang)
               for (let day = 0; day < 31; day++) {
-                  const cell = document.createElement('td');
-                  cell.className = 'p-1 text-center';
                   
-                  const statusDiv = document.createElement('div');
-                  statusDiv.className = 'heatmap-cell mx-auto cursor-pointer';
+                  // --- Sel 1: DATANG (Masuk) ---
+                  const cellMasuk = document.createElement('td');
+                  cellMasuk.className = 'p-1 text-center';
+                  
+                  const statusDivMasuk = document.createElement('div');
+                  statusDivMasuk.className = 'heatmap-cell mx-auto cursor-pointer';
                   
                   const status = emp.absenMasuk[day] || '';
                   let statusText = '';
@@ -619,10 +645,35 @@
                       default:   statusClass = 'bg-gray-100'; statusText = 'Tidak Ada Data';
                   }
                   
-                  statusDiv.classList.add(statusClass);
-                  statusDiv.title = `${emp.nama} - Hari ${day + 1}: ${statusText}`;
-                  cell.appendChild(statusDiv);
-                  row.appendChild(cell);
+                  statusDivMasuk.classList.add(statusClass);
+                  statusDivMasuk.title = `${emp.nama} - Hari ${day + 1} (Datang): ${statusText}`;
+                  cellMasuk.appendChild(statusDivMasuk);
+                  row.appendChild(cellMasuk);
+
+                  // --- Sel 2: PULANG ---
+                  const cellPulang = document.createElement('td');
+                  cellPulang.className = 'p-1 text-center';
+                  
+                  const statusDivPulang = document.createElement('div');
+                  statusDivPulang.className = 'heatmap-cell mx-auto cursor-pointer';
+
+                  const statusP = emp.absenPulang[day] || '';
+                  let statusTextP = '';
+                  let statusClassP = '';
+
+                  // Asumsi 'v' adalah kode untuk pulang, kode lain dianggap 'Tidak Ada Data'
+                  if (statusP === 'v') {
+                      statusClassP = 'status-pulang';
+                      statusTextP = 'Pulang';
+                  } else {
+                      statusClassP = 'bg-gray-100';
+                      statusTextP = 'Tidak Ada Data';
+                  }
+
+                  statusDivPulang.classList.add(statusClassP);
+                  statusDivPulang.title = `${emp.nama} - Hari ${day + 1} (Pulang): ${statusTextP}`;
+                  cellPulang.appendChild(statusDivPulang);
+                  row.appendChild(cellPulang);
               }
               
               tbody.appendChild(row);
@@ -708,6 +759,9 @@
   </script>
 </body>
 </html>
+
+
+
 
 
 
