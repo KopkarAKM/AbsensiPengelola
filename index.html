@@ -112,22 +112,42 @@
     <!-- Main Dashboard Content -->
     <div id="dashboard-content" class="hidden">
       
-      <!-- Papan Skor Utama (DIHAPUS) -->
-      <!-- 
+      <!-- [BARU] Analisis & Filter -->
       <section class="mb-8">
-        <h2 class="text-2xl font-semibold text-gray-800 mb-6">📊 Papan Skor Utama (Bulan Ini)</h2>
-... (Konten Papan Skor Utama dihapus) ...
+        <h2 class="text-2xl font-semibold text-gray-800 mb-6">🔍 Analisis & Filter</h2>
+        
+        <!-- Filter Dropdown -->
+        <div class="mb-6 bg-white p-6 rounded-xl shadow-lg">
+          <label for="employee-filter" class="block text-lg font-semibold text-gray-800 mb-3">Filter Karyawan (Deep Dive)</label>
+          <p class="text-gray-600 mb-4 text-sm">Pilih karyawan untuk melihat data spesifik mereka di semua modul di bawah ini.</p>
+          <select id="employee-filter" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all">Semua Karyawan</option>
+            <!-- Opsi akan diisi oleh JavaScript -->
+          </select>
+        </div>
+
+        <!-- Grafik Baru -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Grafik Tren Keterlambatan Harian -->
+          <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">📈 Tren Keterlambatan Harian</h3>
+            <canvas id="chartLateTrend" height="200"></canvas>
+          </div>
+          
+          <!-- Grafik Akurasi Lokasi -->
+          <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">🎯 Akurasi Lokasi Absensi</h3>
+            <canvas id="chartLocation" height="200"></canvas>
+          </div>
+
+          <!-- [BARU] Grafik Tren Tidak Absen -->
+          <div class="bg-white p-6 rounded-xl shadow-lg">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">🚫 Tren Tidak Absen (Alpa)</h3>
+            <canvas id="chartAbsentTrend" height="200"></canvas>
+          </div>
+        </div>
       </section>
-      -->
-      
-      <!-- Grafik Tren (DIHAPUS) -->
-      <!--
-      <section class="mb-8">
-        <h2 class="text-2xl font-semibold text-gray-800 mb-6">📈 Analisis Kehadiran</h2>
-... (Konten Grafik Tren dihapus) ...
-      </section>
-      -->
-      
+
       <!-- Daftar Karyawan -->
       <section class="mb-8">
         <h2 class="text-2xl font-semibold text-gray-800 mb-6">👥 Performa Karyawan</h2>
@@ -190,8 +210,9 @@
           company_name: 'Dashboard Absensi Karyawan'
       };
 
-      let currentData = null;
-      // let charts = {}; (Dihapus karena tidak dipakai)
+      // --- Variabel Global ---
+      let currentData = null; // Menyimpan data *penuh* dari Google Sheet
+      let charts = {}; // Menyimpan semua instance Chart.js
 
       // Fungsi untuk mengambil data dari Google Sheet
       async function fetchSheetData(sheetId, sheetName) {
@@ -284,6 +305,8 @@
               totalTidakAbsen: 0,
               totalLokasiBenar: 0,
               totalLokasiSalah: 0,
+              dailyLateTrend: Array(31).fill(0), // [BARU] Untuk tren keterlambatan
+              dailyAbsentTrend: Array(31).fill(0), // [BARU] Untuk tren tidak absen (Alpa)
               employeeStats: {}
           };
 
@@ -322,6 +345,7 @@
                           stats.totalLokasiBenar++;
                           empStat.lokasiBenar++;
                           empStat.score += 5; // Skor lebih rendah
+                          stats.dailyLateTrend[day]++; // [BARU] Tambahkan ke tren
                           break;
                       case 'tx': // Telat Salah Lokasi
                           stats.totalTelat++;
@@ -329,6 +353,7 @@
                           stats.totalLokasiSalah++;
                           empStat.lokasiSalah++;
                           empStat.score += 3; // Skor sangat rendah
+                          stats.dailyLateTrend[day]++; // [BARU] Tambahkan ke tren
                           break;
                       case 's': // Sakit (dianggap lokasi benar)
                           stats.totalSakit++;
@@ -366,6 +391,7 @@
                           if ((statusMasuk === 'a' || statusMasuk === '') && (statusPulang === 'a' || statusPulang === '')) {
                               stats.totalTidakAbsen++;
                               empStat.tidakAbsen++;
+                              stats.dailyAbsentTrend[day]++; // [BARU] Tambahkan ke tren Alpa
                               empStat.score -= 5; // Skor minus
                           }
                           // Jika hanya 1 kolom yang kosong (lupa absen), tidak dihitung sebagai alpa.
@@ -378,26 +404,125 @@
           return stats;
       }
 
-      // Update papan skor (DIHAPUS)
-      /*
-      function updateScoreboard(stats) {
-... (Konten fungsi updateScoreboard dihapus) ...
+      // [BARU] Buat grafik tren keterlambatan
+      function createLateTrendChart(stats) {
+          if (charts.late) charts.late.destroy(); // Hancurkan chart lama
+          
+          const ctx = document.getElementById('chartLateTrend').getContext('2d');
+          const labels = Array.from({ length: 31 }, (_, i) => i + 1); // Label 1-31
+          
+          charts.late = new Chart(ctx, {
+              type: 'line',
+              data: {
+                  labels: labels,
+                  datasets: [{
+                      label: 'Total Keterlambatan',
+                      data: stats.dailyLateTrend,
+                      backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                      borderColor: 'rgba(245, 158, 11, 1)',
+                      borderWidth: 2,
+                      tension: 0.3,
+                      fill: true,
+                      pointBackgroundColor: 'rgba(245, 158, 11, 1)'
+                  }]
+              },
+              options: {
+                  responsive: true,
+                  plugins: {
+                      legend: { display: false }
+                  },
+                  scales: {
+                      y: {
+                          beginAtZero: true,
+                          ticks: {
+                              stepSize: 1
+                          }
+                      }
+                  }
+              }
+          });
       }
-      */
 
-      // Buat grafik status (DIHAPUS)
-      /*
-      function createStatusChart(stats) {
-... (Konten fungsi createStatusChart dihapus) ...
-      }
-      */
-
-      // Buat grafik lokasi (DIHAPUS)
-      /*
+      // [BARU] Buat grafik lokasi
       function createLocationChart(stats) {
-... (Konten fungsi createLocationChart dihapus) ...
+          if (charts.location) charts.location.destroy(); // Hancurkan chart lama
+
+          const ctx = document.getElementById('chartLocation').getContext('2d');
+          const total = stats.totalLokasiBenar + stats.totalLokasiSalah;
+          
+          charts.location = new Chart(ctx, {
+              type: 'doughnut',
+              data: {
+                  labels: ['Lokasi Benar', 'Lokasi Salah'],
+                  datasets: [{
+                      data: [stats.totalLokasiBenar, stats.totalLokasiSalah],
+                      backgroundColor: ['#10b981', '#ef4444'],
+                      borderColor: '#ffffff',
+                      borderWidth: 2
+                  }]
+              },
+              options: {
+                  responsive: true,
+                  plugins: {
+                      legend: {
+                          position: 'bottom'
+                      },
+                      tooltip: {
+                          callbacks: {
+                              label: function(context) {
+                                  let label = context.label || '';
+                                  if (label) label += ': ';
+                                  if (context.parsed) {
+                                      const percentage = (context.parsed / total * 100).toFixed(1);
+                                      label += `${context.parsed} (${percentage}%)`;
+                                  }
+                                  return label;
+                              }
+                          }
+                      }
+                  }
+              }
+          });
       }
-      */
+
+      // [BARU] Buat grafik tren tidak absen (Alpa)
+      function createAbsentTrendChart(stats) {
+          if (charts.absent) charts.absent.destroy(); // Hancurkan chart lama
+          
+          const ctx = document.getElementById('chartAbsentTrend').getContext('2d');
+          const labels = Array.from({ length: 31 }, (_, i) => i + 1); // Label 1-31
+          
+          charts.absent = new Chart(ctx, {
+              type: 'line',
+              data: {
+                  labels: labels,
+                  datasets: [{
+                      label: 'Total Tidak Absen (Alpa)',
+                      data: stats.dailyAbsentTrend,
+                      backgroundColor: 'rgba(239, 68, 68, 0.2)', // Warna merah
+                      borderColor: 'rgba(239, 68, 68, 1)',
+                      borderWidth: 2,
+                      tension: 0.3,
+                      fill: true,
+                      pointBackgroundColor: 'rgba(239, 68, 68, 1)'
+                  }]
+              },
+              options: {
+                  responsive: true,
+                  plugins: {
+                      legend: { display: false }
+                  },
+                  scales: {
+                      y: {
+                          beginAtZero: true,
+                          ticks: {
+                              stepSize: 1
+                          }
+                      }
+                  }
+              }
+          });
+      }
 
       // Buat daftar top performer
       function createTopLists(stats) {
@@ -602,6 +727,47 @@
           container.appendChild(table);
       }
 
+      // [BARU] Mengisi dropdown filter karyawan
+      function populateEmployeeFilter(employees) {
+          const select = document.getElementById('employee-filter');
+          if (!select) return;
+
+          // Hapus opsi lama (kecuali yang pertama)
+          select.innerHTML = '<option value="all">Semua Karyawan</option>';
+          
+          employees.forEach(emp => {
+              const option = document.createElement('option');
+              option.value = emp.nama;
+              option.textContent = emp.nama;
+              select.appendChild(option);
+          });
+
+          // Tambahkan event listener
+          select.addEventListener('change', filterDashboard);
+      }
+
+      // [BARU] Fungsi utama untuk memfilter dan me-render ulang dashboard
+      function filterDashboard() {
+          const selectedValue = document.getElementById('employee-filter').value;
+          
+          let filteredEmployees;
+          if (selectedValue === 'all') {
+              filteredEmployees = currentData; // Gunakan semua data
+          } else {
+              filteredEmployees = currentData.filter(emp => emp.nama === selectedValue); // Filter satu karyawan
+          }
+
+          // 1. Analisis data yang sudah difilter
+          const stats = analyzeData(filteredEmployees);
+          
+          // 2. Render ulang semua modul dengan data yang sudah difilter
+          createLateTrendChart(stats);
+          createLocationChart(stats);
+          createAbsentTrendChart(stats); // [BARU]
+          createTopLists(stats);
+          createHeatmap(filteredEmployees); // Heatmap perlu data mentah karyawan
+      }
+
       // Load dan render dashboard
       async function loadDashboard() {
           const config = window.elementSdk?.config || defaultConfig;
@@ -617,16 +783,15 @@
               document.getElementById('error-state').style.display = 'none';
               document.getElementById('dashboard-content').style.display = 'none';
 
+              // 1. Ambil data penuh
               const employees = await fetchSheetData(sheetId, sheetName);
-              currentData = employees;
+              currentData = employees; // Simpan data penuh secara global
               
-              const stats = analyzeData(employees);
+              // 2. Isi dropdown filter
+              populateEmployeeFilter(employees);
               
-              // updateScoreboard(stats); (Dihapus)
-              // createStatusChart(stats); (Dihapus)
-              // createLocationChart(stats); (Dihapus)
-              createTopLists(stats);
-              createHeatmap(employees);
+              // 3. Render dashboard awal (dengan "Semua Karyawan")
+              filterDashboard();
               
               document.getElementById('loading-state').style.display = 'none';
               document.getElementById('dashboard-content').style.display = 'block';
@@ -679,14 +844,5 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
 
 
