@@ -234,10 +234,13 @@
          * Mengambil data master dari Google Apps Script Web App
          */
         async function fetchMasterData() {
+            // Pengecekan placeholder dihapus karena URL Web App sudah dikonfirmasi
+            /*
             if (WEB_APP_URL === "https://script.google.com/macros/s/AKfycbz6YajqskEFxko5jVtpK8RS3oI-LUHbaLCUmgCFa-xHZIWSGrxJfB66ng0O0HqR4Arf-g/exec") {
                 loadingText.innerHTML = '<div class="p-4 bg-red-600 rounded-lg">Error: URL Web App belum dimasukkan.<br>Silakan edit file HTML ini dan masukkan URL Anda pada variabel `WEB_APP_URL`.<br>Lihat file `README.md` untuk instruksi.</div>';
                 return;
             }
+            */
 
             try {
                 const response = await fetch(WEB_APP_URL);
@@ -632,4 +635,5 @@
     </script>
 </body>
 </html>
+
 
