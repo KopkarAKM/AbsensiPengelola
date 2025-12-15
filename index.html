@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Absensi - History & Drill Down</title>
+  <title>Dashboard Absensi - Lengkap & Interaktif</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
@@ -30,17 +30,18 @@
       }
       
       /* Warna Status */
-      .status-hadir { background-color: #10b981; } /* v */
+      .status-hadir { background-color: #10b981; } /* v - Hijau */
       .status-hadir-salah-lokasi { background-color: #84cc16; } /* x */
-      .status-telat { background-color: #f59e0b; } /* t */
-      .status-telat-salah-lokasi { background-color: #fb923c; } /* tx */
-      .status-sakit { background-color: #ef4444; } /* s */
-      .status-sakit-salah-lokasi { background-color: #f87171; } /* sx */
-      .status-izin { background-color: #8b5cf6; } /* i */
-      .status-izin-salah-lokasi { background-color: #a78bfa; } /* ix */
-      .status-tidak-absen { background-color: #6b7280; color: transparent; } /* a */
-      .status-pulang { background-color: #3b82f6; } /* Pulang */
-      .status-lupa { background-color: #93c5fd; } /* Lupa Absen */
+      .status-telat { background-color: #eab308; } /* t - Kuning */
+      .status-telat-salah-lokasi { background-color: #ca8a04; } /* tx */
+      .status-sakit { background-color: #ef4444; } /* s - Merah */
+      .status-sakit-salah-lokasi { background-color: #b91c1c; } /* sx */
+      .status-izin { background-color: #8b5cf6; } /* i - Ungu */
+      .status-izin-salah-lokasi { background-color: #7c3aed; } /* ix */
+      .status-tidak-absen { background-color: #6b7280; color: transparent; } /* a - Abu */
+      .status-pulang { background-color: #3b82f6; } /* Pulang Normal - Biru */
+      .status-pulang-cepat { background-color: #f97316; } /* Pulang Cepat - Oranye */
+      .status-lupa { background-color: #93c5fd; } /* Lupa Absen - Biru Muda */
       .status-libur { background-color: #e5e7eb; color: #9ca3af; } /* h */
       .status-nodata { background-color: #f3f4f6; color: transparent; } 
 
@@ -51,6 +52,21 @@
           border-radius: 50%;
           animation: spin 1s linear infinite;
       }
+      
+      /* Efek Hover untuk Kartu Stats */
+      .stat-card {
+          transition: transform 0.2s, box-shadow 0.2s;
+          cursor: pointer;
+      }
+      .stat-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      .stat-card.active-card {
+          ring: 2px solid #3b82f6;
+          background-color: #f0f9ff;
+      }
+
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
@@ -66,7 +82,7 @@
             📊 Dashboard Presensi
             <span id="current-period-badge" class="bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded-full hidden">...</span>
           </h1>
-          <p class="text-gray-500 text-sm mt-1">Monitoring kehadiran, lokasi, dan jam kerja karyawan.</p>
+          <p class="text-gray-500 text-sm mt-1">Klik kartu statistik untuk melihat detail karyawan.</p>
         </div>
 
         <!-- Filter Controls -->
@@ -99,12 +115,67 @@
 
     <!-- Konten Dashboard -->
     <div id="dashboard-content" class="hidden space-y-6">
-      <!-- Stats Cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><p class="text-xs text-gray-500 uppercase font-bold">Hadir</p><p class="text-3xl font-bold text-gray-800 mt-1" id="stat-hadir">0</p></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><p class="text-xs text-gray-500 uppercase font-bold">Terlambat</p><p class="text-3xl font-bold text-yellow-600 mt-1" id="stat-telat">0</p></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><p class="text-xs text-gray-500 uppercase font-bold">Sakit/Izin</p><p class="text-3xl font-bold text-red-600 mt-1" id="stat-izin">0</p></div>
-        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><p class="text-xs text-gray-500 uppercase font-bold">Alpa</p><p class="text-3xl font-bold text-purple-600 mt-1" id="stat-alpa">0</p></div>
+      
+      <!-- Stats Cards (Grid 3x2) - KLIK UNTUK DETAIL -->
+      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Baris 1 -->
+        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-green-500" onclick="showDetails('hadir')">
+            <p class="text-xs text-gray-500 uppercase font-bold">Hadir Tepat</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-hadir">0</p>
+            <p class="text-xs text-green-600 mt-1">Klik untuk detail</p>
+        </div>
+        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-yellow-500" onclick="showDetails('telat')">
+            <p class="text-xs text-gray-500 uppercase font-bold">Terlambat Masuk</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-telat">0</p>
+            <p class="text-xs text-yellow-600 mt-1">Klik untuk detail</p>
+        </div>
+        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-red-500" onclick="showDetails('izin')">
+            <p class="text-xs text-gray-500 uppercase font-bold">Sakit/Izin</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-izin">0</p>
+            <p class="text-xs text-red-600 mt-1">Klik untuk detail</p>
+        </div>
+        
+        <!-- Baris 2 -->
+        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500" onclick="showDetails('pulangCepat')">
+            <p class="text-xs text-gray-500 uppercase font-bold">Pulang Cepat (< 17:00)</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-pulang-cepat">0</p>
+            <p class="text-xs text-orange-600 mt-1">Klik untuk detail</p>
+        </div>
+        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-blue-300" onclick="showDetails('tidakPulang')">
+            <p class="text-xs text-gray-500 uppercase font-bold">Tidak Absen Pulang</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-tidak-pulang">0</p>
+            <p class="text-xs text-blue-400 mt-1">Klik untuk detail</p>
+        </div>
+        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-gray-500" onclick="showDetails('alpa')">
+            <p class="text-xs text-gray-500 uppercase font-bold">Alpa / Tanpa Ket.</p>
+            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-alpa">0</p>
+            <p class="text-xs text-gray-500 mt-1">Klik untuk detail</p>
+        </div>
+      </div>
+
+      <!-- [BARU] Tabel Detail Dinamis -->
+      <div id="detail-list-container" class="hidden bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden animate-fade-in-down">
+          <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+              <h3 class="font-bold text-gray-800" id="detail-list-title">Detail Data</h3>
+              <button onclick="hideDetails()" class="text-gray-400 hover:text-red-500">
+                  <span class="sr-only">Tutup</span>
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+          </div>
+          <div class="overflow-x-auto max-h-64 overflow-y-auto">
+              <table class="w-full text-sm text-left">
+                  <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
+                      <tr>
+                          <th class="px-6 py-3">Nama Karyawan</th>
+                          <th class="px-6 py-3">Tanggal</th>
+                          <th class="px-6 py-3">Keterangan</th>
+                      </tr>
+                  </thead>
+                  <tbody id="detail-list-body" class="divide-y divide-gray-100">
+                      <!-- Isi tabel akan digenerate JS -->
+                  </tbody>
+              </table>
+          </div>
       </div>
 
       <!-- Heatmap -->
@@ -115,6 +186,8 @@
              <div class="flex items-center"><span class="w-3 h-3 bg-green-500 rounded-sm mr-1"></span>Hadir</div>
              <div class="flex items-center"><span class="w-3 h-3 bg-yellow-500 rounded-sm mr-1"></span>Telat</div>
              <div class="flex items-center"><span class="w-3 h-3 bg-blue-500 rounded-sm mr-1"></span>Pulang</div>
+             <div class="flex items-center"><span class="w-3 h-3 bg-orange-500 rounded-sm mr-1"></span>Plg Cepat</div>
+             <div class="flex items-center"><span class="w-3 h-3 bg-blue-300 rounded-sm mr-1"></span>Lupa Plg</div>
              <div class="flex items-center"><span class="w-3 h-3 bg-red-500 rounded-sm mr-1"></span>Sakit/Izin</div>
              <div class="flex items-center"><span class="w-3 h-3 bg-gray-500 rounded-sm mr-1"></span>Alpa</div>
           </div>
@@ -125,8 +198,10 @@
       <!-- Charts -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
-            <h3 class="font-bold text-gray-700 mb-4">Tren Keterlambatan Harian</h3>
-            <canvas id="chartLate" height="120"></canvas>
+            <h3 class="font-bold text-gray-700 mb-4">Komposisi Kedisiplinan</h3>
+            <div class="h-[250px] w-full">
+               <canvas id="chartComposition"></canvas>
+            </div>
           </div>
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
             <h3 class="font-bold text-gray-700 mb-4">🏆 Top Rajin (Skor)</h3>
@@ -136,7 +211,7 @@
     </div>
   </div>
 
-  <!-- Modal Drill-Down -->
+  <!-- Modal Drill-Down (Popup) -->
   <div id="detailModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="fixed inset-0 bg-gray-900 bg-opacity-60 transition-opacity backdrop-blur-sm" onclick="closeModal()"></div>
     <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
@@ -168,23 +243,18 @@
                     <p class="text-sm font-medium text-gray-800 mt-1 truncate" id="modal-jarak">-</p>
                 </div>
             </div>
-            
             <a id="modal-maps-link" href="#" target="_blank" class="flex items-center justify-center w-full px-4 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors group">
               <span class="mr-2">📍</span> Buka Lokasi di Maps
             </a>
-
-            <!-- Area Foto -->
             <div id="modal-foto-container" class="hidden">
                <p class="text-xs text-gray-500 mb-2 font-semibold">📷 Bukti Foto</p>
                <div class="relative aspect-[3/4] w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-inner group">
                  <img id="modal-foto" src="" alt="Bukti" class="absolute inset-0 w-full h-full object-cover">
                </div>
             </div>
-            <!-- Fallback Foto jika Path -->
             <div id="modal-foto-error" class="hidden bg-yellow-50 p-3 rounded-lg text-xs text-yellow-700 border border-yellow-100">
-               ⚠️ Foto tersedia di database tapi formatnya jalur file (path), bukan link publik. Tidak dapat ditampilkan di dashboard.
+               ⚠️ Foto tersedia (Path), bukan Link Publik.
             </div>
-
             <div id="modal-no-data" class="hidden text-center py-6">
                 <div class="inline-block p-3 rounded-full bg-gray-100 mb-2">🚫</div>
                 <p class="text-gray-500 text-sm italic">Data digital tidak ditemukan.</p>
@@ -196,19 +266,31 @@
   </div>
 
   <script>
+      // --- KONFIGURASI ---
       const CONFIG = {
           sheetId: '1wCVC1jC6cSp5jIRUxTlDLOM-CyUNnSuTe8tegh3Y8QA', 
           sheetNames: {
               data: 'Data',
               arrayMasuk: 'Array Absen Masuk',
               arrayPulang: 'Array Absen Pulang'
-          }
+          },
+          jamPulangNormal: '17:00:00' // Setting Jam Pulang Standar
       };
 
       let rawData = { masterEmp: [], historyMasuk: [], historyPulang: [] };
       let processedData = {};
       let availablePeriods = [];
       let charts = {};
+      
+      // [BARU] Variable global untuk menyimpan detail per kategori
+      let detailedStats = {
+          hadir: [],
+          telat: [],
+          izin: [],
+          pulangCepat: [],
+          tidakPulang: [],
+          alpa: []
+      };
 
       async function initApp() {
           const loading = document.getElementById('loading-state');
@@ -250,7 +332,6 @@
       }
 
       async function fetchSheet(sheetName) {
-          // Headers=1 agar kita bisa menghandle header row manual
           const url = `https://docs.google.com/spreadsheets/d/${CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}&headers=1`;
           const res = await fetch(url);
           if(!res.ok) throw new Error(`HTTP Error ${res.status}`);
@@ -260,20 +341,16 @@
       }
 
       function parseMasterData(rows) {
-          // Sheet Data: ID(0), Nama(1), Lokasi(2)
           return rows.map(r => r.c[1]?.v).filter(n => n && n !== 'Nama');
       }
 
       function parseHistoryArray(rows, type) {
-          // Mapping Kolom Array Absen Masuk/Pulang (Updated):
-          // Date(2), Time(3), Name(5), Loc(9), Photo(10), Dist(11), Code(14 / ico)
-          
           rows.forEach(row => {
               const v = (i) => (row.c[i] && row.c[i].v !== null) ? row.c[i].v : null;
               
               const dateVal = v(2);
               const name = v(5);
-              const code = v(14); // Index 14 = 'ico' column (v/t/x)
+              const code = v(14); // Index 14 = 'ico'
               
               if (!dateVal || !name || name === 'Nama' || !code) return; 
 
@@ -299,9 +376,9 @@
 
               const dataObj = {
                   code: code,
-                  time: v(3),
+                  time: v(3), // Jam (String "17:00:42")
                   loc: v(9),
-                  photo: v(10), // Isinya path text
+                  photo: v(10),
                   jarak: v(11)
               };
 
@@ -349,8 +426,8 @@
 
           const gridData = [];
           const daysInMonth = new Date(year, month, 0).getDate();
-
           const allEmployees = [...rawData.masterEmp];
+          
           if(processedData[year] && processedData[year][month]) {
               Object.keys(processedData[year][month]).forEach(n => {
                   if(!allEmployees.includes(n)) allEmployees.push(n);
@@ -397,6 +474,9 @@
 
           renderHeatmap(gridData, daysInMonth);
           calculateAndRenderStats(gridData, daysInMonth);
+          
+          // Sembunyikan tabel detail saat render ulang (ganti bulan/filter)
+          hideDetails();
       }
 
       function renderHeatmap(data, daysCount) {
@@ -412,8 +492,11 @@
               html += `<td class="p-3 font-medium text-gray-700 sticky left-0 bg-white z-10 shadow-sm whitespace-nowrap">${emp.nama}</td>`;
               
               emp.days.forEach(d => {
-                  const m = d.masuk; const cM = getStatusClass(m.code, 'Masuk');
-                  const p = d.pulang; const cP = getStatusClass(p.code, 'Pulang', m.code);
+                  const m = d.masuk; 
+                  const p = d.pulang; 
+                  
+                  const cM = getStatusClass(m.code, 'Masuk');
+                  const cP = getStatusClass(p.code, 'Pulang', m.code, p.time);
                   
                   html += `<td class="p-1 border-l border-gray-100"><div onclick="openModal('${emp.nama}', ${d.day}, '${m.code||''}', 'Masuk', '${m.time||''}', '${m.loc||''}', '${m.photo||''}', '${m.jarak||''}')" class="heatmap-cell mx-auto ${cM}" title="Masuk: ${m.code || '-'}">${m.code ? m.code.toUpperCase() : ''}</div></td>`;
                   html += `<td class="p-1 border-r border-gray-100"><div onclick="openModal('${emp.nama}', ${d.day}, '${p.code||''}', 'Pulang', '${p.time||''}', '${p.loc||''}', '${p.photo||''}', '${p.jarak||''}')" class="heatmap-cell mx-auto ${cP}" title="Pulang: ${p.code || '-'}">${p.code === 'v' ? 'P' : (p.code ? p.code.toUpperCase() : '')}</div></td>`;
@@ -425,18 +508,58 @@
       }
 
       function calculateAndRenderStats(data, daysCount) {
-          let s = { hadir: 0, telat: 0, izin: 0, alpa: 0, dailyLate: Array(daysCount).fill(0) };
+          let s = { 
+            hadir: 0, telat: 0, izin: 0, alpa: 0, 
+            pulangCepat: 0, tidakPulang: 0 
+          };
+          
+          // [BARU] Reset detail setiap kali kalkulasi ulang
+          detailedStats = {
+              hadir: [], telat: [], izin: [], pulangCepat: [], tidakPulang: [], alpa: []
+          };
+          
           let scores = [];
 
           data.forEach(emp => {
               let score = 0;
-              emp.days.forEach((d, idx) => {
+              emp.days.forEach((d) => {
                   const c = d.masuk.code;
-                  if(['v','x'].includes(c)) s.hadir++;
-                  if(['t','tx'].includes(c)) { s.telat++; s.dailyLate[idx]++; }
-                  if(['s','sx','i','ix'].includes(c)) s.izin++;
-                  if(c === 'a') s.alpa++;
+                  const cP = d.pulang.code;
+                  const tP = d.pulang.time;
+                  const tM = d.masuk.time; // Jam masuk
 
+                  // 1. Stats Masuk & Detail
+                  if(['v','x'].includes(c)) {
+                      s.hadir++;
+                      detailedStats.hadir.push({name: emp.nama, date: d.day, desc: `Masuk: ${tM || '-'}`});
+                  }
+                  if(['t','tx'].includes(c)) {
+                      s.telat++;
+                      detailedStats.telat.push({name: emp.nama, date: d.day, desc: `Telat Masuk: ${tM || '-'}`});
+                  }
+                  if(['s','sx','i','ix'].includes(c)) {
+                      s.izin++;
+                      detailedStats.izin.push({name: emp.nama, date: d.day, desc: `Status: ${c.toUpperCase()}`});
+                  }
+                  if(c === 'a') {
+                      s.alpa++;
+                      detailedStats.alpa.push({name: emp.nama, date: d.day, desc: 'Tidak Ada Keterangan'});
+                  }
+
+                  // 2. Stats Pulang (Logic Baru) & Detail
+                  if( (c === 'v' || c === 't' || c === 'x' || c === 'tx') && (!cP || cP === 'a') ) {
+                      s.tidakPulang++;
+                      detailedStats.tidakPulang.push({name: emp.nama, date: d.day, desc: 'Lupa/Tidak Absen Pulang'});
+                      score -= 2; 
+                  }
+
+                  if(cP && tP && tP < CONFIG.jamPulangNormal) {
+                      s.pulangCepat++;
+                      detailedStats.pulangCepat.push({name: emp.nama, date: d.day, desc: `Pulang: ${tP}`});
+                      score -= 1;
+                  }
+
+                  // 3. Scoring General
                   if(c === 'v') score += 10;
                   else if(c === 'x') score += 8;
                   else if(c === 't') score += 5;
@@ -445,12 +568,15 @@
               scores.push({name: emp.nama, score: score});
           });
 
+          // Render Angka
           document.getElementById('stat-hadir').innerText = s.hadir;
           document.getElementById('stat-telat').innerText = s.telat;
           document.getElementById('stat-izin').innerText = s.izin;
           document.getElementById('stat-alpa').innerText = s.alpa;
+          document.getElementById('stat-pulang-cepat').innerText = s.pulangCepat;
+          document.getElementById('stat-tidak-pulang').innerText = s.tidakPulang;
 
-          renderLineChart(s.dailyLate, daysCount);
+          renderCompositionChart(s);
 
           scores.sort((a,b) => b.score - a.score);
           const list = document.getElementById('top-performer-list');
@@ -461,18 +587,75 @@
               </div>
           `).join('');
       }
+      
+      // [BARU] Fungsi Tampilkan Detail
+      window.showDetails = function(category) {
+          const container = document.getElementById('detail-list-container');
+          const tbody = document.getElementById('detail-list-body');
+          const title = document.getElementById('detail-list-title');
+          
+          // Reset style active card
+          document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('active-card'));
+          
+          let dataList = detailedStats[category] || [];
+          let categoryName = '';
+          
+          switch(category) {
+              case 'hadir': categoryName = 'Hadir Tepat Waktu'; break;
+              case 'telat': categoryName = 'Keterlambatan Masuk'; break;
+              case 'izin': categoryName = 'Sakit & Izin'; break;
+              case 'pulangCepat': categoryName = 'Pulang Lebih Awal'; break;
+              case 'tidakPulang': categoryName = 'Tidak Absen Pulang'; break;
+              case 'alpa': categoryName = 'Alpa (Tanpa Keterangan)'; break;
+          }
+          
+          title.textContent = `Detail: ${categoryName} (${dataList.length})`;
+          tbody.innerHTML = '';
+          
+          if(dataList.length === 0) {
+              tbody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500 italic">Tidak ada data untuk kategori ini.</td></tr>';
+          } else {
+              // Sort berdasarkan tanggal
+              dataList.sort((a, b) => a.date - b.date);
+              
+              const monthName = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex].text;
+              const year = document.getElementById('filter-year').value;
 
-      function getStatusClass(c, type, pairCode) {
+              dataList.forEach(item => {
+                  const tr = document.createElement('tr');
+                  tr.className = 'bg-white border-b hover:bg-gray-50';
+                  tr.innerHTML = `
+                      <td class="px-6 py-3 font-medium text-gray-900">${item.name}</td>
+                      <td class="px-6 py-3">${item.date} ${monthName} ${year}</td>
+                      <td class="px-6 py-3 text-gray-600">${item.desc}</td>
+                  `;
+                  tbody.appendChild(tr);
+              });
+          }
+          
+          container.classList.remove('hidden');
+          // Highlight card clicked (optional logic could be added here to target specific card)
+      };
+      
+      window.hideDetails = function() {
+          document.getElementById('detail-list-container').classList.add('hidden');
+          document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('active-card'));
+      };
+
+      function getStatusClass(c, type, pairCode, time) {
           if(!c) {
-              if(type === 'Pulang' && pairCode && pairCode !== 'a' && pairCode !== 'h') return 'status-lupa'; 
+              if(type === 'Pulang' && pairCode && pairCode !== 'a' && pairCode !== 'h' && !c) return 'status-lupa'; 
               return 'status-nodata';
           }
           c = c.toLowerCase();
+          
           if(type === 'Pulang') {
+              if(time && time < CONFIG.jamPulangNormal) return 'status-pulang-cepat';
               if(c === 'v') return 'status-pulang';
               if(c === 'a') return 'status-tidak-absen';
               return 'status-nodata';
           }
+          
           if(c === 'v') return 'status-hadir';
           if(c === 'x') return 'status-hadir-salah-lokasi';
           if(c === 't') return 'status-telat';
@@ -484,30 +667,48 @@
           return 'status-nodata';
       }
 
-      function renderLineChart(data, days) {
-          const ctx = document.getElementById('chartLate').getContext('2d');
-          if(charts.line) charts.line.destroy();
-          charts.line = new Chart(ctx, {
-              type: 'line',
+      function renderCompositionChart(stats) {
+          const ctx = document.getElementById('chartComposition').getContext('2d');
+          if(charts.composition) charts.composition.destroy();
+
+          charts.composition = new Chart(ctx, {
+              type: 'doughnut',
               data: {
-                  labels: Array.from({length:days}, (_,i)=>i+1),
-                  datasets: [{ label: 'Jml Terlambat', data: data, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: true, tension: 0.4, pointRadius: 2 }]
+                  labels: ['Hadir', 'Telat', 'Plg Cepat', 'Tdk Absen Plg', 'Sakit/Izin', 'Alpa'],
+                  datasets: [{
+                      data: [stats.hadir, stats.telat, stats.pulangCepat, stats.tidakPulang, stats.izin, stats.alpa],
+                      backgroundColor: [
+                          '#10b981', // Hadir
+                          '#eab308', // Telat
+                          '#f97316', // Plg Cepat
+                          '#93c5fd', // Lupa Plg
+                          '#ef4444', // Sakit
+                          '#6b7280'  // Alpa
+                      ],
+                      borderWidth: 0
+                  }]
               },
-              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false} }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+              options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                      legend: { position: 'right', labels: { boxWidth: 12, padding: 10, font: {size: 10} } }
+                  },
+                  cutout: '60%'
+              }
           });
       }
 
+      // Modal Functions (Sama seperti sebelumnya)
       window.openModal = function(nama, hari, code, type, jam, loc, foto, jarak) {
           const modal = document.getElementById('detailModal');
           const monthName = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex].text;
           const year = document.getElementById('filter-year').value;
-
           document.getElementById('modal-nama').innerText = nama;
           document.getElementById('modal-avatar').innerText = nama.charAt(0).toUpperCase();
           document.getElementById('modal-tanggal').innerText = `${hari} ${monthName} ${year}`;
           document.getElementById('modal-tipe').innerText = type.toUpperCase();
           document.getElementById('modal-status-badge').innerText = code ? `Kode: ${code.toUpperCase()}` : 'Tidak Ada Data';
-          
           const elJam = document.getElementById('modal-jam');
           const elJarak = document.getElementById('modal-jarak');
           const elMaps = document.getElementById('modal-maps-link');
@@ -523,38 +724,16 @@
               elNoData.classList.add('hidden');
               elJam.innerText = isValid(jam) ? jam.substring(0,5) : '--:--';
               elJarak.innerText = isValid(jarak) ? `${jarak} km` : '-';
-              
               if(isValid(loc)) {
                   const cleanLoc = loc.replace(/["]/g, '');
                   elMaps.href = `https://www.google.com/maps/search/?api=1&query=${cleanLoc}`;
                   elMaps.classList.remove('hidden');
-              } else {
-                  elMaps.classList.add('hidden');
-              }
-
-              // Logic Image Display
+              } else { elMaps.classList.add('hidden'); }
               if(isValid(foto)) {
-                  // Cek apakah ini URL (http) atau Path folder
-                  if (foto.startsWith('http')) {
-                       // Direct URL
-                       elFotoContainer.classList.remove('hidden');
-                       elFotoError.classList.add('hidden');
-                       elImg.src = foto;
-                  } else if (foto.includes('/') && !foto.startsWith('http')) {
-                       // Ini kemungkinan Path Folder (Presensi Masuk_Images/...)
-                       // Tidak bisa ditampilkan langsung
-                       elFotoContainer.classList.add('hidden');
-                       elFotoError.classList.remove('hidden');
-                  } else {
-                       // Kemungkinan Drive ID polos
-                       elFotoContainer.classList.remove('hidden');
-                       elFotoError.classList.add('hidden');
-                       elImg.src = `https://drive.google.com/thumbnail?id=${foto}`;
-                  }
-              } else {
-                  elFotoContainer.classList.add('hidden');
-                  elFotoError.classList.add('hidden');
-              }
+                  if (foto.startsWith('http')) { elFotoContainer.classList.remove('hidden'); elFotoError.classList.add('hidden'); elImg.src = foto; }
+                  else if (foto.includes('/') && !foto.startsWith('http')) { elFotoContainer.classList.add('hidden'); elFotoError.classList.remove('hidden'); }
+                  else { elFotoContainer.classList.remove('hidden'); elFotoError.classList.add('hidden'); elImg.src = `https://drive.google.com/thumbnail?id=${foto}`; }
+              } else { elFotoContainer.classList.add('hidden'); elFotoError.classList.add('hidden'); }
           } else {
               elJam.innerText = '--:--'; elJarak.innerText = '-';
               elMaps.classList.add('hidden'); elFotoContainer.classList.add('hidden'); elFotoError.classList.add('hidden');
@@ -562,9 +741,7 @@
           }
           modal.classList.remove('hidden');
       };
-
       window.closeModal = function() { document.getElementById('detailModal').classList.add('hidden'); };
-
       document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
