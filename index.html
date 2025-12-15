@@ -3,938 +3,569 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Absensi Google Sheet</title>
+  <title>Dashboard Absensi - History & Drill Down</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-      body {
-          font-family: 'Inter', sans-serif;
-          box-sizing: border-box;
-      }
-      .metric-card {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          transition: transform 0.3s ease, box-shadow 0.3s ease;
-      }
-      .metric-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-      }
+      body { font-family: 'Inter', sans-serif; }
+      
+      /* Animasi dan Styling Heatmap */
       .heatmap-cell {
-          width: 20px; /* Diperkecil dari 25px */
-          height: 20px; /* Diperkecil dari 25px */
-          border-radius: 4px;
+          width: 26px; height: 26px;
+          border-radius: 6px;
           transition: all 0.2s ease;
           position: relative;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 10px;
+          font-weight: bold;
+          color: rgba(255,255,255,0.9);
       }
       .heatmap-cell:hover {
-          transform: scale(1.2);
+          transform: scale(1.25);
           z-index: 10;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       }
       
-      /* Definisi Status
-        v = Hadir Tepat (Hadir, Lokasi Benar)
-        x = Hadir Salah Lokasi (Hadir, Lokasi Salah)
-        t = Telat Tepat (Telat, Lokasi Benar)
-        tx = Telat Salah Lokasi (Telat, Lokasi Salah)
-        s = Sakit (dengan lampiran, dianggap lokasi benar)
-        sx = Sakit (tanpa lampiran, dianggap lokasi salah)
-        i = Izin (dengan lampiran, dianggap lokasi benar)
-        ix = Izin (tanpa lampiran, dianggap lokasi salah)
-        a = Tidak Absen (Alpa)
-      */
-
-      /* Hadir */
+      /* Warna Status */
       .status-hadir { background-color: #10b981; } /* v */
       .status-hadir-salah-lokasi { background-color: #84cc16; } /* x */
-      
-      /* Telat */
       .status-telat { background-color: #f59e0b; } /* t */
       .status-telat-salah-lokasi { background-color: #fb923c; } /* tx */
-
-      /* Sakit */
       .status-sakit { background-color: #ef4444; } /* s */
       .status-sakit-salah-lokasi { background-color: #f87171; } /* sx */
-
-      /* Izin */
       .status-izin { background-color: #8b5cf6; } /* i */
       .status-izin-salah-lokasi { background-color: #a78bfa; } /* ix */
+      .status-tidak-absen { background-color: #6b7280; color: transparent; } /* a */
+      .status-pulang { background-color: #3b82f6; } /* Pulang */
+      .status-lupa { background-color: #93c5fd; } /* Lupa Absen */
+      .status-libur { background-color: #e5e7eb; color: #9ca3af; } /* h */
+      .status-nodata { background-color: #f3f4f6; color: transparent; } 
 
-      /* Tidak Absen */
-      .status-tidak-absen { background-color: #6b7280; } /* a */
-      
-      /* Pulang */
-      .status-pulang { background-color: #60a5fa; } /* v (Pulang) */
-      
       .loading {
-          display: inline-block;
-          width: 20px;
-          height: 20px;
+          width: 24px; height: 24px;
           border: 3px solid #f3f3f3;
-          border-top: 3px solid #3498db;
+          border-top: 3px solid #3b82f6;
           border-radius: 50%;
           animation: spin 1s linear infinite;
       }
-      @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-      }
-
-      /* Style untuk font Inter */
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
-  <div class="container mx-auto px-4 sm:px-6 py-8">
+<body class="bg-gray-50 min-h-screen">
+
+  <div class="container mx-auto px-4 py-6">
     
-    <!-- Header -->
-    <header class="mb-8">
-      <h1 class="text-3xl lg:text-4xl font-bold text-gray-800 mb-2" id="dashboard-title">Dashboard Absensi Karyawan</h1>
-      <p class="text-gray-600" id="company-subtitle">Data Real-time dari Google Sheet</p>
-    </header>
-    
-    <!-- Loading State -->
-    <div id="loading-state" class="text-center py-12">
-      <div class="loading mx-auto mb-4"></div>
-      <p class="text-gray-600">Memuat data dari Google Sheet...</p>
-    </div>
-    
-    <!-- Error State -->
-    <div id="error-state" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
-      <div class="flex items-center">
-        <div class="text-red-500 text-3xl mr-4">⚠️</div>
+    <!-- Header Control Panel -->
+    <header class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
+      <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
-          <h3 class="text-red-800 font-semibold text-lg">Gagal Memuat Data</h3>
-          <p class="text-red-600" id="error-message">Tidak dapat mengakses Google Sheet. Pastikan sheet dapat diakses publik.</p>
+          <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            📊 Dashboard Presensi
+            <span id="current-period-badge" class="bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded-full hidden">...</span>
+          </h1>
+          <p class="text-gray-500 text-sm mt-1">Monitoring kehadiran, lokasi, dan jam kerja karyawan.</p>
+        </div>
+
+        <!-- Filter Controls -->
+        <div class="flex flex-wrap gap-3 bg-gray-50 p-2 rounded-lg border border-gray-200">
+          <div class="flex gap-2">
+             <select id="filter-month" onchange="renderDashboard()" class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2"><option value="">Bulan...</option></select>
+             <select id="filter-year" onchange="renderDashboard()" class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2"><option value="">Tahun...</option></select>
+          </div>
+          <div class="w-px bg-gray-300 mx-1"></div>
+          <select id="filter-employee" onchange="renderDashboard()" class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2 min-w-[150px]">
+            <option value="all">Semua Tim</option>
+          </select>
+          <button onclick="initApp()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- State Loading & Error -->
+    <div id="loading-state" class="text-center py-20 hidden">
+      <div class="loading mx-auto mb-4"></div>
+      <p class="text-gray-600 font-medium animate-pulse">Sinkronisasi Sheet...</p>
+    </div>
+    <div id="error-state" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-8 text-center">
+      <h3 class="text-red-800 font-bold text-lg mb-2">Koneksi Gagal</h3>
+      <p class="text-red-600 text-sm" id="error-message"></p>
+      <button onclick="initApp()" class="mt-4 text-sm text-red-700 underline">Coba Lagi</button>
+    </div>
+
+    <!-- Konten Dashboard -->
+    <div id="dashboard-content" class="hidden space-y-6">
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><p class="text-xs text-gray-500 uppercase font-bold">Hadir</p><p class="text-3xl font-bold text-gray-800 mt-1" id="stat-hadir">0</p></div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><p class="text-xs text-gray-500 uppercase font-bold">Terlambat</p><p class="text-3xl font-bold text-yellow-600 mt-1" id="stat-telat">0</p></div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><p class="text-xs text-gray-500 uppercase font-bold">Sakit/Izin</p><p class="text-3xl font-bold text-red-600 mt-1" id="stat-izin">0</p></div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100"><p class="text-xs text-gray-500 uppercase font-bold">Alpa</p><p class="text-3xl font-bold text-purple-600 mt-1" id="stat-alpa">0</p></div>
+      </div>
+
+      <!-- Heatmap -->
+      <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
+        <div class="p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <h2 class="text-lg font-bold text-gray-800">🔥 Grid Absensi Bulanan</h2>
+          <div class="flex flex-wrap justify-center gap-3 text-xs text-gray-600">
+             <div class="flex items-center"><span class="w-3 h-3 bg-green-500 rounded-sm mr-1"></span>Hadir</div>
+             <div class="flex items-center"><span class="w-3 h-3 bg-yellow-500 rounded-sm mr-1"></span>Telat</div>
+             <div class="flex items-center"><span class="w-3 h-3 bg-blue-500 rounded-sm mr-1"></span>Pulang</div>
+             <div class="flex items-center"><span class="w-3 h-3 bg-red-500 rounded-sm mr-1"></span>Sakit/Izin</div>
+             <div class="flex items-center"><span class="w-3 h-3 bg-gray-500 rounded-sm mr-1"></span>Alpa</div>
+          </div>
+        </div>
+        <div class="overflow-x-auto p-2"><div id="heatmap-container" class="min-w-[800px]"></div></div>
+      </div>
+      
+      <!-- Charts -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+            <h3 class="font-bold text-gray-700 mb-4">Tren Keterlambatan Harian</h3>
+            <canvas id="chartLate" height="120"></canvas>
+          </div>
+          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <h3 class="font-bold text-gray-700 mb-4">🏆 Top Rajin (Skor)</h3>
+            <div id="top-performer-list" class="space-y-3"></div>
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Drill-Down -->
+  <div id="detailModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-gray-900 bg-opacity-60 transition-opacity backdrop-blur-sm" onclick="closeModal()"></div>
+    <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+      <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+        <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-gray-200">
+          <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex justify-between items-center">
+            <h3 class="text-lg font-bold text-white" id="modal-title">Detail Aktivitas</h3>
+            <button onclick="closeModal()" class="text-blue-100 hover:text-white text-2xl leading-none">&times;</button>
+          </div>
+          <div class="px-6 py-6 space-y-5">
+            <div class="flex items-center space-x-4 border-b border-gray-100 pb-4">
+               <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl border border-blue-100" id="modal-avatar">A</div>
+               <div>
+                  <h4 class="text-lg font-bold text-gray-900" id="modal-nama">-</h4>
+                  <p class="text-sm text-gray-500" id="modal-tanggal">-</p>
+               </div>
+               <div class="ml-auto flex flex-col items-end">
+                   <span id="modal-status-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 mb-1">-</span>
+                   <span class="text-[10px] text-gray-400 font-mono" id="modal-tipe">MASUK</span>
+               </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <p class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Jam Catat</p>
+                    <p class="text-xl font-mono font-bold text-gray-800" id="modal-jam">--:--</p>
+                </div>
+                <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                    <p class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Jarak Kantor</p>
+                    <p class="text-sm font-medium text-gray-800 mt-1 truncate" id="modal-jarak">-</p>
+                </div>
+            </div>
+            
+            <a id="modal-maps-link" href="#" target="_blank" class="flex items-center justify-center w-full px-4 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors group">
+              <span class="mr-2">📍</span> Buka Lokasi di Maps
+            </a>
+
+            <!-- Area Foto -->
+            <div id="modal-foto-container" class="hidden">
+               <p class="text-xs text-gray-500 mb-2 font-semibold">📷 Bukti Foto</p>
+               <div class="relative aspect-[3/4] w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-inner group">
+                 <img id="modal-foto" src="" alt="Bukti" class="absolute inset-0 w-full h-full object-cover">
+               </div>
+            </div>
+            <!-- Fallback Foto jika Path -->
+            <div id="modal-foto-error" class="hidden bg-yellow-50 p-3 rounded-lg text-xs text-yellow-700 border border-yellow-100">
+               ⚠️ Foto tersedia di database tapi formatnya jalur file (path), bukan link publik. Tidak dapat ditampilkan di dashboard.
+            </div>
+
+            <div id="modal-no-data" class="hidden text-center py-6">
+                <div class="inline-block p-3 rounded-full bg-gray-100 mb-2">🚫</div>
+                <p class="text-gray-500 text-sm italic">Data digital tidak ditemukan.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-    
-    <!-- Main Dashboard Content -->
-    <div id="dashboard-content" class="hidden">
-      
-      <!-- [BARU] Analisis & Filter -->
-      <section class="mb-8">
-        <h2 class="text-2xl font-semibold text-gray-800 mb-6">🔍 Analisis & Filter</h2>
-        
-        <!-- Filter Dropdown -->
-        <div class="mb-6 bg-white p-6 rounded-xl shadow-lg">
-          <label for="employee-filter" class="block text-lg font-semibold text-gray-800 mb-3">Filter Karyawan (Deep Dive)</label>
-          <p class="text-gray-600 mb-4 text-sm">Pilih karyawan untuk melihat data spesifik mereka di semua modul di bawah ini.</p>
-          <select id="employee-filter" class="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="all">Semua Karyawan</option>
-            <!-- Opsi akan diisi oleh JavaScript -->
-          </select>
-        </div>
-
-        <!-- Grafik Baru -->
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <!-- Grafik Tren Keterlambatan Harian -->
-          <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">📈 Tren Keterlambatan Harian</h3>
-            <canvas id="chartLateTrend" height="200"></canvas>
-          </div>
-          
-          <!-- Grafik Akurasi Lokasi -->
-          <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">🎯 Akurasi Lokasi Absensi</h3>
-            <canvas id="chartLocation" height="200"></canvas>
-          </div>
-
-          <!-- [DIUBAH] Grafik Tren Tidak Hadir (Alpa) -->
-          <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">🚫 Tren Tidak Hadir (Alpa)</h3>
-            <canvas id="chartAbsentTrend" height="200"></canvas>
-          </div>
-
-          <!-- [BARU] Grafik Tren Lupa Absen -->
-          <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">🔔 Tren Lupa Absen</h3>
-            <canvas id="chartLupaTrend" height="200"></canvas>
-          </div>
-        </div>
-      </section>
-
-      <!-- Daftar Karyawan -->
-      <section class="mb-8">
-        <h2 class="text-2xl font-semibold text-gray-800 mb-6">👥 Performa Karyawan</h2>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          <!-- Top Performer -->
-          <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center"><span class="text-green-500 mr-2 text-2xl">⭐</span> Top 5 Karyawan Terbaik</h3>
-            <div class="space-y-3" id="top-performer">
-              <!-- Data akan diisi oleh JavaScript -->
-            </div>
-          </div>
-          
-          <!-- Perlu Perhatian -->
-          <div class="bg-white p-6 rounded-xl shadow-lg">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center"><span class="text-red-500 mr-2 text-2xl">⚠️</span> 5 Karyawan Perlu Perhatian</h3>
-            <div class="space-y-3" id="need-attention">
-              <!-- Data akan diisi oleh JavaScript -->
-            </div>
-          </div>
-          
-        </div>
-      </section>
-      
-      <!-- Peta Panas Kehadiran -->
-      <section class="mb-8">
-        <h2 class="text-2xl font-semibold text-gray-800 mb-6">🔥 Peta Panas Kehadiran</h2>
-        <div class="bg-white p-6 rounded-xl shadow-lg overflow-x-auto">
-          
-          <!-- Legenda Heatmap -->
-          <div class="mb-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-sm">
-            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-hadir"></div><span>Hadir</span></div>
-            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-hadir-salah-lokasi"></div><span>Hadir (Salah Lokasi)</span></div>
-            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-telat"></div><span>Telat</span></div>
-            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-telat-salah-lokasi"></div><span>Telat (Salah Lokasi)</span></div>
-            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-sakit"></div><span>Sakit</span></div>
-            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-izin"></div><span>Izin</span></div>
-            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-tidak-absen"></div><span>Tidak Absen</span></div>
-            <div class="flex items-center"><div class="w-4 h-4 rounded mr-2 status-pulang"></div><span>Pulang</span></div>
-          </div>
-          
-          <div id="heatmap-container">
-            <!-- Heatmap akan diisi oleh JavaScript -->
-          </div>
-          
-        </div>
-      </section>
-      
-    </div>
   </div>
-  
+
   <script>
-      // --- KONFIGURASI ---
-      const defaultConfig = {
-          // ID Google Sheet Anda sudah terpasang di sini
-          sheet_id: '1wCVC1jC6cSp5jIRUxTlDLOM-CyUNnSuTe8tegh3Y8QA',
-          // Nama sheet (tab) yang berisi data
-          sheet_name: 'Laporan',
-          // Judul Dashboard
-          company_name: 'Dashboard Absensi Karyawan'
+      const CONFIG = {
+          sheetId: '1wCVC1jC6cSp5jIRUxTlDLOM-CyUNnSuTe8tegh3Y8QA', 
+          sheetNames: {
+              data: 'Data',
+              arrayMasuk: 'Array Absen Masuk',
+              arrayPulang: 'Array Absen Pulang'
+          }
       };
 
-      // --- Variabel Global ---
-      let currentData = null; // Menyimpan data *penuh* dari Google Sheet
-      let charts = {}; // Menyimpan semua instance Chart.js
+      let rawData = { masterEmp: [], historyMasuk: [], historyPulang: [] };
+      let processedData = {};
+      let availablePeriods = [];
+      let charts = {};
 
-      // Fungsi untuk mengambil data dari Google Sheet
-      async function fetchSheetData(sheetId, sheetName) {
+      async function initApp() {
+          const loading = document.getElementById('loading-state');
+          const errorDiv = document.getElementById('error-state');
+          const content = document.getElementById('dashboard-content');
+          
+          loading.classList.remove('hidden');
+          content.classList.add('hidden');
+          errorDiv.classList.add('hidden');
+
           try {
-              // Menambahkan parameter cache buster unik (_=timestamp) untuk memastikan data selalu baru
-              const cacheBuster = `&_=${new Date().getTime()}`;
-              // Menggunakan endpoint gviz/tq untuk mendapatkan JSON
-              // Menambahkan &headers=0 untuk memaksa API mengembalikan semua barj, tanpa menebak header
-              const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}&headers=0${cacheBuster}`;
-              const response = await fetch(url);
+              const [rowsData, rowsMasuk, rowsPulang] = await Promise.all([
+                  fetchSheet(CONFIG.sheetNames.data),
+                  fetchSheet(CONFIG.sheetNames.arrayMasuk),
+                  fetchSheet(CONFIG.sheetNames.arrayPulang)
+              ]);
+
+              rawData.masterEmp = parseMasterData(rowsData);
+              processedData = {}; 
+              parseHistoryArray(rowsMasuk, 'Masuk');
+              parseHistoryArray(rowsPulang, 'Pulang');
+              populatePeriodFilters();
               
-              if (!response.ok) {
-                  throw new Error(`Google Sheet merespon dengan status: ${response.status}`);
-              }
-              
-              const text = await response.text();
-              
-              // Membersihkan response JSONP dari Google
-              const jsonText = text.substring(47).slice(0, -2);
-              const data = JSON.parse(jsonText);
-              
-              if (data.status === 'error') {
-                  throw new Error(`Error dari Google Sheet API: ${data.errors.map(e => e.detailed_message).join(', ')}`);
+              if(availablePeriods.length > 0) {
+                  document.getElementById('filter-year').value = availablePeriods[0].y;
+                  document.getElementById('filter-month').value = availablePeriods[0].m;
               }
 
-              return parseSheetData(data);
-          } catch (error) {
-              console.error('Error fetching sheet data:', error);
-                  throw new Error(`Gagal mengambil data. Pastikan Google Sheet Anda sudah di "Publish to the web" dan nama sheet ("${sheetName}") sudah benar.`);
+              renderDashboard();
+              loading.classList.add('hidden');
+              content.classList.remove('hidden');
+
+          } catch (err) {
+              console.error(err);
+              loading.classList.add('hidden');
+              errorDiv.classList.remove('hidden');
+              document.getElementById('error-message').textContent = `Gagal memuat: ${err.message}.`;
           }
       }
 
-      // Parse data dari Google Sheet
-      function parseSheetData(data) {
-          const rows = data.table.rows;
-          const employees = [];
-          
-          if (!rows || rows.length < 2) {
-              throw new Error("Data tidak ditemukan atau format sheet salah. Pastikan baris pertama adalah header.");
-          }
-
-          // Skip header row (i = 0), mulai dari data (i = 1)
-          // Berdasarkan gambar Anda, data karyawan mulai dari baris 6 (index 5)
-          for (let i = 5; i < rows.length; i++) {
-              const row = rows[i];
-              // Pastikan baris dan kolom nama ada (Kolom A, index 0)
-              if (!row.c || !row.c[0] || typeof row.c[0].v !== 'string' || row.c[0].v.trim() === '') {
-                  continue; // Lewati baris jika tidak ada nama
-              }
-              
-              const employee = {
-                  nama: row.c[0].v.trim(),
-                  absenMasuk: [],
-                  absenPulang: []
-              };
-              
-              // Parse absen masuk (Kolom D, F, H, ... | index 1, 3, 5, ... setelah null di-skip)
-              // Kita melompat (j += 2) untuk melewati kolom "Pulang"
-              // Loop diubah dari (j=3; j<=63) menjadi (j=1; j<=61) untuk memperbaiki pergeseran 2-kolom
-              for (let j = 1; j <= 61; j += 2) {
-                  let status = (row.c[j] && row.c[j].v) ? String(row.c[j].v).toLowerCase().trim() : '';
-                  employee.absenMasuk.push(status);
-              }
-              
-              // Parse absen pulang (Kolom E, G, I, ... | index 2, 4, 6, ... setelah null di-skip)
-              // Kita melompat (j += 2) untuk melewati kolom "Masuk"
-              // Loop diubah dari (j=4; j<=64) menjadi (j=2; j<=62) untuk memperbaiki pergeseran 2-kolom
-              for (let j = 2; j <= 62; j += 2) {
-                  let status = (row.c[j] && row.c[j].v) ? String(row.c[j].v).toLowerCase().trim() : '';
-                  employee.absenPulang.push(status);
-              }
-              
-              employees.push(employee);
-          }
-          
-          if (employees.length === 0) {
-              throw new Error("Tidak ada data karyawan yang valid ditemukan di sheet.");
-          }
-          
-          return employees;
+      async function fetchSheet(sheetName) {
+          // Headers=1 agar kita bisa menghandle header row manual
+          const url = `https://docs.google.com/spreadsheets/d/${CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}&headers=1`;
+          const res = await fetch(url);
+          if(!res.ok) throw new Error(`HTTP Error ${res.status}`);
+          const text = await res.text();
+          const json = JSON.parse(text.substr(47).slice(0, -2));
+          return json.table.rows;
       }
 
-      // Analisis data absensi
-      function analyzeData(employees) {
-          const stats = {
-              totalHadir: 0,
-              totalTelat: 0,
-              totalSakit: 0,
-              totalIzin: 0,
-              totalTidakAbsen: 0,
-              totalLokasiBenar: 0,
-              totalLokasiSalah: 0,
-              totalLupaAbsen: 0, // [BARU] Statistik Lupa Absen (1x)
-              dailyLateTrend: Array(31).fill(0),
-              dailyAbsentTrend: Array(31).fill(0), // (Alpa / 2x)
-              dailyLupaTrend: Array(31).fill(0), // [BARU] (Lupa Absen / 1x)
-              employeeStats: {}
-          };
+      function parseMasterData(rows) {
+          // Sheet Data: ID(0), Nama(1), Lokasi(2)
+          return rows.map(r => r.c[1]?.v).filter(n => n && n !== 'Nama');
+      }
 
-          employees.forEach(emp => {
-              stats.employeeStats[emp.nama] = {
-                  hadir: 0, telat: 0, sakit: 0, izin: 0, tidakAbsen: 0,
-                  lupaAbsen: 0, // [BARU]
-                  lokasiBenar: 0, lokasiSalah: 0, score: 0
+      function parseHistoryArray(rows, type) {
+          // Mapping Kolom Array Absen Masuk/Pulang (Updated):
+          // Date(2), Time(3), Name(5), Loc(9), Photo(10), Dist(11), Code(14 / ico)
+          
+          rows.forEach(row => {
+              const v = (i) => (row.c[i] && row.c[i].v !== null) ? row.c[i].v : null;
+              
+              const dateVal = v(2);
+              const name = v(5);
+              const code = v(14); // Index 14 = 'ico' column (v/t/x)
+              
+              if (!dateVal || !name || name === 'Nama' || !code) return; 
+
+              let year, month, day;
+              if (typeof dateVal === 'string' && dateVal.includes('-')) {
+                  const parts = dateVal.split('-');
+                  year = parseInt(parts[0]);
+                  month = parseInt(parts[1]);
+                  day = parseInt(parts[2]);
+              } else if (String(dateVal).includes('Date')) {
+                  const d = eval(`new ${dateVal}`);
+                  year = d.getFullYear();
+                  month = d.getMonth() + 1;
+                  day = d.getDate();
+              } else {
+                  return;
+              }
+
+              if(!processedData[year]) processedData[year] = {};
+              if(!processedData[year][month]) processedData[year][month] = {};
+              if(!processedData[year][month][name]) processedData[year][month][name] = {};
+              if(!processedData[year][month][name][day]) processedData[year][month][name][day] = { masuk: null, pulang: null };
+
+              const dataObj = {
+                  code: code,
+                  time: v(3),
+                  loc: v(9),
+                  photo: v(10), // Isinya path text
+                  jarak: v(11)
               };
 
-              // --- LOGIKA ANALISIS DIROMBAK ---
-              // Loop 31 hari untuk setiap karyawan
-              for (let day = 0; day < 31; day++) {
-                  const empStat = stats.employeeStats[emp.nama];
-                  const statusMasuk = emp.absenMasuk[day] || '';
-                  const statusPulang = emp.absenPulang[day] || '';
-
-                  // Hentikan jika hari libur (misal 'h' di data masuk)
-                  if (statusMasuk === 'h') continue;
-
-                  // Definisikan kondisi ada/tidak
-                  // (Status ada jika BUKAN 'a' DAN BUKAN '')
-                  const masukAda = statusMasuk !== 'a' && statusMasuk !== '';
-                  const pulangAda = statusPulang !== 'a' && statusPulang !== '';
-
-                  // --- Pengecekan Berbasis Prioritas ---
-
-                  // 1. Cek TIDAK HADIR (ALPA) (Keduanya Kosong)
-                  if (!masukAda && !pulangAda) {
-                      stats.totalTidakAbsen++;
-                      empStat.tidakAbsen++;
-                      stats.dailyAbsentTrend[day]++; // Tambah ke tren Alpa (2x)
-                      empStat.score -= 5;
-                      continue; // Hari ini selesai dianalisis, lanjut ke hari berikutnya
-                  }
-
-                  // 2. Cek LUPA ABSEN (Salah Satu Kosong)
-                  if (masukAda && !pulangAda) { // Lupa absen pulang
-                      stats.totalLupaAbsen++;
-                      empStat.lupaAbsen++;
-                      stats.dailyLupaTrend[day]++; // Tambah ke tren Lupa Absen (1x)
-                      empStat.score += 1; // Skor rendah karena lupa
-                  } else if (!masukAda && pulangAda) { // Lupa absen masuk
-                      stats.totalLupaAbsen++;
-                      empStat.lupaAbsen++;
-                      stats.dailyLupaTrend[day]++; // Tambah ke tren Lupa Absen (1x)
-                      empStat.score += 1; // Skor rendah karena lupa
-                  }
-
-                  // 3. Analisis Status Masuk (Hanya jika 'masukAda')
-                  // Jika 'masukAda' false, bagian ini dilewati (karena sudah ditangani #1 atau #2)
-                  if (masukAda) {
-                      switch (statusMasuk) {
-                          case 'v': // Hadir Tepat
-                              stats.totalHadir++;
-                              empStat.hadir++;
-                              stats.totalLokasiBenar++;
-                              empStat.lokasiBenar++;
-                              empStat.score += 10;
-                              break;
-                          case 'x': // Hadir Salah Lokasi
-                              stats.totalHadir++;
-                              empStat.hadir++;
-                              stats.totalLokasiSalah++;
-                              empStat.lokasiSalah++;
-                              empStat.score += 7;
-                              break;
-                          case 't': // Telat Tepat
-                              stats.totalTelat++;
-                              empStat.telat++;
-                              stats.totalLokasiBenar++;
-                              empStat.lokasiBenar++;
-                              empStat.score += 5;
-                              stats.dailyLateTrend[day]++;
-                              break;
-                          case 'tx': // Telat Salah Lokasi
-                              stats.totalTelat++;
-                              empStat.telat++;
-                              stats.totalLokasiSalah++;
-                              empStat.lokasiSalah++;
-                              empStat.score += 3;
-                              stats.dailyLateTrend[day]++;
-                              break;
-                          case 's': // Sakit (benar)
-                              stats.totalSakit++;
-                              empStat.sakit++;
-                              stats.totalLokasiBenar++;
-                              empStat.lokasiBenar++;
-                              empStat.score += 2;
-                              break;
-                          case 'sx': // Sakit (salah)
-                              stats.totalSakit++;
-                              empStat.sakit++;
-                              stats.totalLokasiSalah++;
-                              empStat.lokasiSalah++;
-                              empStat.score += 1;
-                              break;
-                          case 'i': // Izin (benar)
-                              stats.totalIzin++;
-                              empStat.izin++;
-                              stats.totalLokasiBenar++;
-                              empStat.lokasiBenar++;
-                              empStat.score += 2;
-                              break;
-                          case 'ix': // Izin (salah)
-                              stats.totalIzin++;
-                              empStat.izin++;
-                              stats.totalLokasiSalah++;
-                              empStat.lokasiSalah++;
-                              empStat.score += 1;
-                              break;
-                          // Kasus 'a' dan '' sudah ditangani di Logika #1 dan #2
-                      }
-                  }
-              } // Selesai loop harian
-          }); // Selesai loop karyawan
-
-          return stats;
-      }
-
-      // [BARU] Buat grafik tren keterlambatan
-      function createLateTrendChart(stats) {
-          if (charts.late) charts.late.destroy(); // Hancurkan chart lama
-          
-          const ctx = document.getElementById('chartLateTrend').getContext('2d');
-          const labels = Array.from({ length: 31 }, (_, i) => i + 1); // Label 1-31
-          
-          charts.late = new Chart(ctx, {
-              type: 'line',
-              data: {
-                  labels: labels,
-                  datasets: [{
-                      label: 'Total Keterlambatan',
-                      data: stats.dailyLateTrend,
-                      backgroundColor: 'rgba(245, 158, 11, 0.2)',
-                      borderColor: 'rgba(245, 158, 11, 1)',
-                      borderWidth: 2,
-                      tension: 0.3,
-                      fill: true,
-                      pointBackgroundColor: 'rgba(245, 158, 11, 1)'
-                  }]
-              },
-              options: {
-                  responsive: true,
-                  plugins: {
-                      legend: { display: false }
-                  },
-                  scales: {
-                      y: {
-                          beginAtZero: true,
-                          ticks: {
-                              stepSize: 1
-                          }
-                      }
-                  }
-              }
+              if(type === 'Masuk') processedData[year][month][name][day].masuk = dataObj;
+              else processedData[year][month][name][day].pulang = dataObj;
           });
       }
 
-      // [BARU] Buat grafik lokasi
-      function createLocationChart(stats) {
-          if (charts.location) charts.location.destroy(); // Hancurkan chart lama
+      function populatePeriodFilters() {
+          const years = Object.keys(processedData).sort((a,b) => b-a);
+          availablePeriods = [];
+          const selYear = document.getElementById('filter-year');
+          const selMonth = document.getElementById('filter-month');
+          selYear.innerHTML = ''; selMonth.innerHTML = '';
 
-          const ctx = document.getElementById('chartLocation').getContext('2d');
-          const total = stats.totalLokasiBenar + stats.totalLokasiSalah;
+          if(years.length === 0) years.push(new Date().getFullYear());
           
-          charts.location = new Chart(ctx, {
-              type: 'doughnut',
-              data: {
-                  labels: ['Lokasi Benar', 'Lokasi Salah'],
-                  datasets: [{
-                      data: [stats.totalLokasiBenar, stats.totalLokasiSalah],
-                      backgroundColor: ['#10b981', '#ef4444'],
-                      borderColor: '#ffffff',
-                      borderWidth: 2
-                  }]
-              },
-              options: {
-                  responsive: true,
-                  plugins: {
-                      legend: {
-                          position: 'bottom'
-                      },
-                      tooltip: {
-                          callbacks: {
-                              label: function(context) {
-                                  let label = context.label || '';
-                                  if (label) label += ': ';
-                                  if (context.parsed) {
-                                      const percentage = (context.parsed / total * 100).toFixed(1);
-                                      label += `${context.parsed} (${percentage}%)`;
-                                  }
-                                  return label;
-                              }
-                          }
-                      }
-                  }
+          years.forEach(y => {
+              const opt = document.createElement('option');
+              opt.value = y; opt.text = y;
+              selYear.appendChild(opt);
+              if(processedData[y]) {
+                  Object.keys(processedData[y]).forEach(m => availablePeriods.push({y:y, m:parseInt(m)}));
               }
+          });
+          availablePeriods.sort((a,b) => (b.y - a.y) || (b.m - a.m));
+          
+          const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+          monthNames.forEach((name, idx) => {
+              const opt = document.createElement('option');
+              opt.value = idx + 1; opt.text = name;
+              selMonth.appendChild(opt);
           });
       }
 
-      // [BARU] Buat grafik tren tidak absen (Alpa)
-      function createAbsentTrendChart(stats) {
-          if (charts.absent) charts.absent.destroy(); // Hancurkan chart lama
-          
-          const ctx = document.getElementById('chartAbsentTrend').getContext('2d');
-          const labels = Array.from({ length: 31 }, (_, i) => i + 1); // Label 1-31
-          
-          charts.absent = new Chart(ctx, {
-              type: 'line',
-              data: {
-                  labels: labels,
-                  datasets: [{
-                      label: 'Total Tidak Absen (Alpa)',
-                      data: stats.dailyAbsentTrend,
-                      backgroundColor: 'rgba(239, 68, 68, 0.2)', // Warna merah
-                      borderColor: 'rgba(239, 68, 68, 1)',
-                      borderWidth: 2,
-                      tension: 0.3,
-                      fill: true,
-                      pointBackgroundColor: 'rgba(239, 68, 68, 1)'
-                  }]
-              },
-              options: {
-                  responsive: true,
-                  plugins: {
-                      legend: { display: false }
-                  },
-                  scales: {
-                      y: {
-                          beginAtZero: true,
-                          ticks: {
-                              stepSize: 1
-                          }
-                      }
-                  }
-              }
-          });
-      }
+      function renderDashboard() {
+          const year = parseInt(document.getElementById('filter-year').value);
+          const month = parseInt(document.getElementById('filter-month').value);
+          const filterEmp = document.getElementById('filter-employee').value;
 
-      // [BARU] Buat grafik tren LUPA ABSEN (1x)
-      function createLupaTrendChart(stats) {
-          if (charts.lupa) charts.lupa.destroy(); // Hancurkan chart lama
-          
-          const ctx = document.getElementById('chartLupaTrend').getContext('2d');
-          const labels = Array.from({ length: 31 }, (_, i) => i + 1); // Label 1-31
-          
-          charts.lupa = new Chart(ctx, {
-              type: 'line',
-              data: {
-                  labels: labels,
-                  datasets: [{
-                      label: 'Total Lupa Absen (1x)',
-                      data: stats.dailyLupaTrend,
-                      backgroundColor: 'rgba(139, 92, 246, 0.2)', // Warna ungu
-                      borderColor: 'rgba(139, 92, 246, 1)',
-                      borderWidth: 2,
-                      tension: 0.3,
-                      fill: true,
-                      pointBackgroundColor: 'rgba(139, 92, 246, 1)'
-                  }]
-              },
-              options: {
-                  responsive: true,
-                  plugins: {
-                      legend: { display: false }
-                  },
-                  scales: {
-                      y: {
-                          beginAtZero: true,
-                          ticks: {
-                              stepSize: 1
-                          }
-                      }
-                  }
-              }
-          });
-      }
+          const monthName = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex]?.text || '-';
+          const badge = document.getElementById('current-period-badge');
+          badge.textContent = `${monthName} ${year}`;
+          badge.classList.remove('hidden');
 
+          const gridData = [];
+          const daysInMonth = new Date(year, month, 0).getDate();
 
-      // Buat daftar top performer
-      function createTopLists(stats) {
-          // Top 5 performer
-          const topPerformers = Object.keys(stats.employeeStats)
-              .map(nama => ({
-                  nama,
-                  score: stats.employeeStats[nama].score,
-                  hadir: stats.employeeStats[nama].hadir,
-                  telat: stats.employeeStats[nama].telat,
-                  sakit: stats.employeeStats[nama].sakit,
-                  izin: stats.employeeStats[nama].izin,
-                  tidakAbsen: stats.employeeStats[nama].tidakAbsen,
-                  lupaAbsen: stats.employeeStats[nama].lupaAbsen // [BARU]
-              }))
-              .sort((a, b) => b.score - a.score) // Urutkan dari skor tertinggi
-              .slice(0, 5);
+          const allEmployees = [...rawData.masterEmp];
+          if(processedData[year] && processedData[year][month]) {
+              Object.keys(processedData[year][month]).forEach(n => {
+                  if(!allEmployees.includes(n)) allEmployees.push(n);
+              });
+          }
+          allEmployees.sort();
 
-          const topContainer = document.getElementById('top-performer');
-          topContainer.innerHTML = '';
-          if (topPerformers.length === 0) {
-              topContainer.innerHTML = '<p class="text-gray-500">Data tidak cukup.</p>';
-          } else {
-              topPerformers.forEach((emp, index) => {
-                  const div = document.createElement('div');
-                  div.className = 'flex justify-between items-center p-3 bg-green-50 rounded-lg';
-                  div.innerHTML = `
-                      <div class="flex items-center">
-                          <span class="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
-                          <span class="font-medium">${emp.nama}</span>
-                      </div>
-                      <div class="text-xs text-right space-y-1">
-                         <span class="block text-green-600 font-bold">${emp.hadir} Hadir</span>
-                         <span class="block text-yellow-600 font-bold">${emp.telat} Telat</span>
-                         <span class="block text-red-600 font-bold">${emp.tidakAbsen} T.Hadir</span>
-                         <span class="block text-purple-600 font-bold">${emp.izin} Izin</span>
-                         <span class="block text-red-500 font-bold">${emp.sakit} Sakit</span>
-                         <span class="block text-blue-500 font-bold">${emp.lupaAbsen} Lupa</span>
-                      </div>
-                  `;
-                  topContainer.appendChild(div);
+          const empSel = document.getElementById('filter-employee');
+          if(empSel.options.length <= 1) {
+              allEmployees.forEach(n => {
+                   const opt = document.createElement('option');
+                   opt.value = n; opt.text = n;
+                   empSel.appendChild(opt);
               });
           }
 
-          // Yang perlu perhatian (skor terendah atau masalah terbanyak)
-          const needAttention = Object.keys(stats.employeeStats)
-              .map(nama => {
-                  const empStats = stats.employeeStats[nama];
-                  return {
-                      nama,
-                      masalah: empStats.tidakAbsen + empStats.telat,
-                      hadir: empStats.hadir,
-                      tidakAbsen: empStats.tidakAbsen,
-                      telat: empStats.telat,
-                      sakit: empStats.sakit,
-                      izin: empStats.izin,
-                      lupaAbsen: empStats.lupaAbsen, // [BARU]
-                      score: empStats.score
-                  };
-              })
-              .sort((a, b) => b.masalah - a.masalah || a.score - b.score) // Prioritaskan masalah terbanyak, lalu skor terendah
-              .slice(0, 5);
+          allEmployees.forEach(name => {
+              if (filterEmp !== 'all' && name !== filterEmp) return;
+              const empRow = { nama: name, days: [] };
 
-          const attentionContainer = document.getElementById('need-attention');
-          attentionContainer.innerHTML = '';
-          if (needAttention.length === 0) {
-              attentionContainer.innerHTML = '<p class="text-gray-500">Tidak ada data.</p>';
-          } else {
-              needAttention.forEach((emp, index) => {
-                  const div = document.createElement('div');
-                  div.className = 'flex justify-between items-center p-3 bg-red-50 rounded-lg';
-                  div.innerHTML = `
-                      <div class="flex items-center">
-                          <span class="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">${index + 1}</span>
-                          <span class="font-medium">${emp.nama}</span>
-                      </div>
-                      <div class="text-xs text-right space-y-1">
-                         <span class="block text-red-600 font-bold">${emp.tidakAbsen} T.Hadir</span>
-                         <span class="block text-yellow-600 font-bold">${emp.telat} Telat</span>
-                         <span class="block text-blue-500 font-bold">${emp.lupaAbsen} Lupa</span>
-                         <span class="block text-green-600 font-bold">${emp.hadir} Hadir</span>
-                         <span class="block text-purple-600 font-bold">${emp.izin} Izin</span>
-                         <span class="block text-red-500 font-bold">${emp.sakit} Sakit</span>
-                      </div>
-                  `;
-                  attentionContainer.appendChild(div);
-              });
-          }
+              for(let d=1; d<=daysInMonth; d++) {
+                  let dataHarian = { masuk: null, pulang: null };
+                  if(processedData[year] && processedData[year][month] && processedData[year][month][name] && processedData[year][month][name][d]) {
+                      dataHarian = processedData[year][month][name][d];
+                  }
+
+                  let mCode = dataHarian.masuk ? dataHarian.masuk.code : '';
+                  let pCode = dataHarian.pulang ? dataHarian.pulang.code : '';
+
+                  if(!mCode && !pCode) {
+                      const checkDate = new Date(year, month-1, d);
+                      const today = new Date();
+                      if(checkDate < today) mCode = 'a';
+                  }
+
+                  empRow.days.push({
+                      day: d,
+                      masuk: { ...dataHarian.masuk, code: mCode },
+                      pulang: { ...dataHarian.pulang, code: pCode }
+                  });
+              }
+              gridData.push(empRow);
+          });
+
+          renderHeatmap(gridData, daysInMonth);
+          calculateAndRenderStats(gridData, daysInMonth);
       }
 
-      // Buat heatmap
-      function createHeatmap(employees) {
+      function renderHeatmap(data, daysCount) {
           const container = document.getElementById('heatmap-container');
-          container.innerHTML = '';
-          
-          const table = document.createElement('table');
-          table.className = 'min-w-full border-collapse';
+          let html = '<table class="w-full border-collapse text-xs">';
+          html += '<thead><tr class="bg-gray-50 border-b border-gray-200">';
+          html += '<th class="p-3 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-20 shadow-sm min-w-[150px]">Nama Karyawan</th>';
+          for(let i=1; i<=daysCount; i++) html += `<th colspan="2" class="p-1 text-center font-medium text-gray-400 border-l border-gray-100">${i}</th>`;
+          html += '</tr></thead><tbody>';
 
-          // Header tanggal (Baris 1)
-          const thead = document.createElement('thead');
-          const headerRow = document.createElement('tr');
-          // Buat header Karyawan sticky dan span 2 baris
-          headerRow.innerHTML = '<th class="sticky left-0 bg-white p-2 text-left font-semibold text-gray-700 min-w-32 z-20" rowspan="2">Karyawan</th>';
-          for (let day = 1; day <= 31; day++) {
-              const th = document.createElement('th');
-              th.className = 'p-1 text-xs text-gray-600 font-medium text-center';
-              th.colSpan = 2; // Setiap tanggal mencakup 2 kolom (D dan P)
-              th.textContent = day;
-              headerRow.appendChild(th);
-          }
-          thead.appendChild(headerRow);
-          
-          // Sub-header D/P (Baris 2)
-          const subHeaderRow = document.createElement('tr');
-          for (let day = 1; day <= 31; day++) {
-              const thD = document.createElement('th');
-              thD.className = 'p-1 text-xs text-gray-500 font-medium bg-gray-50';
-              thD.textContent = 'D';
-              subHeaderRow.appendChild(thD);
+          data.forEach(emp => {
+              html += `<tr class="hover:bg-blue-50/30 border-b border-gray-100 transition-colors">`;
+              html += `<td class="p-3 font-medium text-gray-700 sticky left-0 bg-white z-10 shadow-sm whitespace-nowrap">${emp.nama}</td>`;
               
-              const thP = document.createElement('th');
-              thP.className = 'p-1 text-xs text-gray-500 font-medium bg-gray-50';
-              thP.textContent = 'P';
-              subHeaderRow.appendChild(thP);
-          }
-          thead.appendChild(subHeaderRow);
-          table.appendChild(thead);
-
-          // Baris karyawan (tbody)
-          const tbody = document.createElement('tbody');
-          employees.forEach(emp => {
-              const row = document.createElement('tr');
-              row.className = 'border-t border-gray-200';
-              
-              const nameCell = document.createElement('td');
-              nameCell.className = 'sticky left-0 bg-white p-2 font-medium text-gray-800 text-sm whitespace-nowrap z-10';
-              nameCell.textContent = emp.nama;
-              row.appendChild(nameCell);
-
-              // Loop 31 hari, buat 2 sel per hari (Datang dan Pulang)
-              for (let day = 0; day < 31; day++) {
+              emp.days.forEach(d => {
+                  const m = d.masuk; const cM = getStatusClass(m.code, 'Masuk');
+                  const p = d.pulang; const cP = getStatusClass(p.code, 'Pulang', m.code);
                   
-                  // --- Sel 1: DATANG (Masuk) ---
-                  const cellMasuk = document.createElement('td');
-                  cellMasuk.className = 'p-1 text-center';
-                  
-                  const statusDivMasuk = document.createElement('div');
-                  statusDivMasuk.className = 'heatmap-cell mx-auto cursor-pointer';
-                  
-                  const status = emp.absenMasuk[day] || '';
-                  const statusPulang = emp.absenPulang[day] || ''; // [BARU] Ambil status pulang
-                  let statusText = '';
-                  let statusClass = '';
-                  
-                  switch (status) {
-                      case 'v':  statusClass = 'status-hadir'; statusText = 'Hadir'; break;
-                      case 'x':  statusClass = 'status-hadir-salah-lokasi'; statusText = 'Hadir (Salah Lokasi)'; break;
-                      case 't':  statusClass = 'status-telat'; statusText = 'Telat'; break;
-                      case 'tx': statusClass = 'status-telat-salah-lokasi'; statusText = 'Telat (Salah Lokasi)'; break;
-                      case 's':  statusClass = 'status-sakit'; statusText = 'Sakit'; break;
-                      case 'sx': statusClass = 'status-sakit-salah-lokasi'; statusText = 'Sakit (Salah Lokasi)'; break;
-                      case 'i':  statusClass = 'status-izin'; statusText = 'Izin'; break;
-                      case 'ix': statusClass = 'status-izin-salah-lokasi'; statusText = 'Izin (Salah Lokasi)'; break;
-                      case 'a':  // 'a' eksplisit
-                      case '':   // String kosong (implisit 'a')
-                          // [DIUBAH] Cek logika Alpa (2x) vs Lupa (1x)
-                          if( (status === 'a' || status === '') && (statusPulang === 'a' || statusPulang === '')) {
-                              statusClass = 'status-tidak-absen'; 
-                              statusText = 'Tidak Hadir (Alpa)';
-                          } else {
-                              // Jika hanya masuk yang kosong (lupa absen masuk)
-                              statusClass = 'bg-blue-200'; // Warna Lupa Absen (biru muda)
-                              statusText = 'Lupa Absen Masuk';
-                          }
-                          break;
-                      case 'h':  statusClass = 'bg-gray-200'; statusText = 'Hari Libur'; break;
-                      default:   statusClass = 'bg-gray-100'; statusText = 'Tidak Ada Data';
-                  }
-                  
-                  statusDivMasuk.classList.add(statusClass);
-                  statusDivMasuk.title = `${emp.nama} - Hari ${day + 1} (Datang): ${statusText}`;
-                  cellMasuk.appendChild(statusDivMasuk);
-                  row.appendChild(cellMasuk);
-
-                  // --- Sel 2: PULANG ---
-                  const cellPulang = document.createElement('td');
-                  cellPulang.className = 'p-1 text-center';
-                  
-                  const statusDivPulang = document.createElement('div');
-                  statusDivPulang.className = 'heatmap-cell mx-auto cursor-pointer';
-
-                  const statusP = emp.absenPulang[day] || '';
-                  const statusM = emp.absenMasuk[day] || ''; // [BARU] Ambil status masuk
-                  let statusTextP = '';
-                  let statusClassP = '';
-
-                  // Asumsi 'v' adalah kode untuk pulang, kode lain dianggap 'Tidak Ada Data'
-                  if (statusP === 'v') {
-                      statusClassP = 'status-pulang';
-                      statusTextP = 'Pulang';
-                  } else {
-                      // [DIUBAH] Cek logika Lupa Absen Pulang
-                      if( (statusP === 'a' || statusP === '') && (statusM !== 'a' && statusM !== '') && statusM !== 'h' ) {
-                          statusClassP = 'bg-blue-200'; // Warna Lupa Absen (biru muda)
-                          statusTextP = 'Lupa Absen Pulang';
-                      } else {
-                          statusClassP = 'bg-gray-100';
-                          statusTextP = 'Tidak Ada Data';
-                      }
-                  }
-
-                  statusDivPulang.classList.add(statusClassP);
-                  statusDivPulang.title = `${emp.nama} - Hari ${day + 1} (Pulang): ${statusTextP}`;
-                  cellPulang.appendChild(statusDivPulang);
-                  row.appendChild(cellPulang);
-              }
-              
-              tbody.appendChild(row);
-          });
-          table.appendChild(tbody);
-          container.appendChild(table);
-      }
-
-      // [BARU] Mengisi dropdown filter karyawan
-      function populateEmployeeFilter(employees) {
-          const select = document.getElementById('employee-filter');
-          if (!select) return;
-
-          // Hapus opsi lama (kecuali yang pertama)
-          select.innerHTML = '<option value="all">Semua Karyawan</option>';
-          
-          employees.forEach(emp => {
-              const option = document.createElement('option');
-              option.value = emp.nama;
-              option.textContent = emp.nama;
-              select.appendChild(option);
-          });
-
-          // Tambahkan event listener
-          select.addEventListener('change', filterDashboard);
-      }
-
-      // [BARU] Fungsi utama untuk memfilter dan me-render ulang dashboard
-      function filterDashboard() {
-          const selectedValue = document.getElementById('employee-filter').value;
-          
-          let filteredEmployees;
-          if (selectedValue === 'all') {
-              filteredEmployees = currentData; // Gunakan semua data
-          } else {
-              filteredEmployees = currentData.filter(emp => emp.nama === selectedValue); // Filter satu karyawan
-          }
-
-          // 1. Analisis data yang sudah difilter
-          const stats = analyzeData(filteredEmployees);
-          
-          // 2. Render ulang semua modul dengan data yang sudah difilter
-          createLateTrendChart(stats);
-          createLocationChart(stats);
-          createAbsentTrendChart(stats); 
-          createLupaTrendChart(stats); // [BARU]
-          createTopLists(stats);
-          createHeatmap(filteredEmployees); // Heatmap perlu data mentah karyawan
-      }
-
-      // Load dan render dashboard
-      async function loadDashboard() {
-          const config = window.elementSdk?.config || defaultConfig;
-          const sheetId = config.sheet_id || defaultConfig.sheet_id;
-          const sheetName = config.sheet_name || defaultConfig.sheet_name;
-          const companyName = config.company_name || defaultConfig.company_name;
-
-          document.getElementById('dashboard-title').textContent = companyName;
-          document.getElementById('company-subtitle').textContent = `Data Real-time dari Google Sheet`;
-
-          try {
-              document.getElementById('loading-state').style.display = 'block';
-              document.getElementById('error-state').style.display = 'none';
-              document.getElementById('dashboard-content').style.display = 'none';
-
-              // 1. Ambil data penuh
-              const employees = await fetchSheetData(sheetId, sheetName);
-              currentData = employees; // Simpan data penuh secara global
-              
-              // 2. Isi dropdown filter
-              populateEmployeeFilter(employees);
-              
-              // 3. Render dashboard awal (dengan "Semua Karyawan")
-              filterDashboard();
-              
-              document.getElementById('loading-state').style.display = 'none';
-              document.getElementById('dashboard-content').style.display = 'block';
-              
-          } catch (error)
- {
-              console.error("Dashboard Gagal Dimuat:", error);
-              document.getElementById('loading-state').style.display = 'none';
-              document.getElementById('error-state').style.display = 'block';
-              document.getElementById('error-message').textContent = error.message;
-          }
-      }
-      
-      // --- Inisialisasi Element SDK (Jika ada) ---
-      // Kode ini menangani jika dijalankan di dalam platform
-      async function onConfigChange(config) {
-          // Muat ulang dashboard jika konfigurasi berubah
-          await loadDashboard();
-      }
-
-      function mapToCapabilities(config) {
-          return {
-              recolorables: [], borderables: [], fontEditable: undefined, fontSizeable: undefined
-          };
-      }
-
-      function mapToEditPanelValues(config) {
-          return new Map([
-              ['sheet_id', config.sheet_id || defaultConfig.sheet_id],
-              ['sheet_name', config.sheet_name || defaultConfig.sheet_name],
-              ['company_name', config.company_name || defaultConfig.company_name]
-          ]);
-      }
-      
-      // Initialize
-      document.addEventListener('DOMContentLoaded', async () => {
-          if (window.elementSdk) {
-              // Inisialisasi jika SDK ditemukan
-              await window.elementSdk.init({
-                  defaultConfig,
-                  onConfigChange,
-                  mapToCapabilities,
-                  mapToEditPanelValues
+                  html += `<td class="p-1 border-l border-gray-100"><div onclick="openModal('${emp.nama}', ${d.day}, '${m.code||''}', 'Masuk', '${m.time||''}', '${m.loc||''}', '${m.photo||''}', '${m.jarak||''}')" class="heatmap-cell mx-auto ${cM}" title="Masuk: ${m.code || '-'}">${m.code ? m.code.toUpperCase() : ''}</div></td>`;
+                  html += `<td class="p-1 border-r border-gray-100"><div onclick="openModal('${emp.nama}', ${d.day}, '${p.code||''}', 'Pulang', '${p.time||''}', '${p.loc||''}', '${p.photo||''}', '${p.jarak||''}')" class="heatmap-cell mx-auto ${cP}" title="Pulang: ${p.code || '-'}">${p.code === 'v' ? 'P' : (p.code ? p.code.toUpperCase() : '')}</div></td>`;
               });
+              html += '</tr>';
+          });
+          html += '</tbody></table>';
+          container.innerHTML = html;
+      }
+
+      function calculateAndRenderStats(data, daysCount) {
+          let s = { hadir: 0, telat: 0, izin: 0, alpa: 0, dailyLate: Array(daysCount).fill(0) };
+          let scores = [];
+
+          data.forEach(emp => {
+              let score = 0;
+              emp.days.forEach((d, idx) => {
+                  const c = d.masuk.code;
+                  if(['v','x'].includes(c)) s.hadir++;
+                  if(['t','tx'].includes(c)) { s.telat++; s.dailyLate[idx]++; }
+                  if(['s','sx','i','ix'].includes(c)) s.izin++;
+                  if(c === 'a') s.alpa++;
+
+                  if(c === 'v') score += 10;
+                  else if(c === 'x') score += 8;
+                  else if(c === 't') score += 5;
+                  else if(c === 'a') score -= 5;
+              });
+              scores.push({name: emp.nama, score: score});
+          });
+
+          document.getElementById('stat-hadir').innerText = s.hadir;
+          document.getElementById('stat-telat').innerText = s.telat;
+          document.getElementById('stat-izin').innerText = s.izin;
+          document.getElementById('stat-alpa').innerText = s.alpa;
+
+          renderLineChart(s.dailyLate, daysCount);
+
+          scores.sort((a,b) => b.score - a.score);
+          const list = document.getElementById('top-performer-list');
+          list.innerHTML = scores.slice(0,5).map((x, i) => `
+              <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div class="flex items-center gap-3"><span class="w-6 h-6 flex items-center justify-center ${i<3?'bg-yellow-500':'bg-gray-400'} text-white rounded-full text-xs font-bold shadow-sm">${i+1}</span><span class="font-medium text-gray-700">${x.name}</span></div>
+                  <span class="text-sm font-bold text-blue-600">${x.score} Pts</span>
+              </div>
+          `).join('');
+      }
+
+      function getStatusClass(c, type, pairCode) {
+          if(!c) {
+              if(type === 'Pulang' && pairCode && pairCode !== 'a' && pairCode !== 'h') return 'status-lupa'; 
+              return 'status-nodata';
           }
+          c = c.toLowerCase();
+          if(type === 'Pulang') {
+              if(c === 'v') return 'status-pulang';
+              if(c === 'a') return 'status-tidak-absen';
+              return 'status-nodata';
+          }
+          if(c === 'v') return 'status-hadir';
+          if(c === 'x') return 'status-hadir-salah-lokasi';
+          if(c === 't') return 'status-telat';
+          if(c === 'tx') return 'status-telat-salah-lokasi';
+          if(c.startsWith('s')) return 'status-sakit';
+          if(c.startsWith('i')) return 'status-izin';
+          if(c === 'a') return 'status-tidak-absen';
+          if(c === 'h') return 'status-libur';
+          return 'status-nodata';
+      }
+
+      function renderLineChart(data, days) {
+          const ctx = document.getElementById('chartLate').getContext('2d');
+          if(charts.line) charts.line.destroy();
+          charts.line = new Chart(ctx, {
+              type: 'line',
+              data: {
+                  labels: Array.from({length:days}, (_,i)=>i+1),
+                  datasets: [{ label: 'Jml Terlambat', data: data, borderColor: '#f59e0b', backgroundColor: 'rgba(245, 158, 11, 0.1)', fill: true, tension: 0.4, pointRadius: 2 }]
+              },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: {display: false} }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+          });
+      }
+
+      window.openModal = function(nama, hari, code, type, jam, loc, foto, jarak) {
+          const modal = document.getElementById('detailModal');
+          const monthName = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex].text;
+          const year = document.getElementById('filter-year').value;
+
+          document.getElementById('modal-nama').innerText = nama;
+          document.getElementById('modal-avatar').innerText = nama.charAt(0).toUpperCase();
+          document.getElementById('modal-tanggal').innerText = `${hari} ${monthName} ${year}`;
+          document.getElementById('modal-tipe').innerText = type.toUpperCase();
+          document.getElementById('modal-status-badge').innerText = code ? `Kode: ${code.toUpperCase()}` : 'Tidak Ada Data';
           
-          // Muat dashboard saat halaman siap
-          await loadDashboard();
-      });
+          const elJam = document.getElementById('modal-jam');
+          const elJarak = document.getElementById('modal-jarak');
+          const elMaps = document.getElementById('modal-maps-link');
+          const elFotoContainer = document.getElementById('modal-foto-container');
+          const elFotoError = document.getElementById('modal-foto-error');
+          const elImg = document.getElementById('modal-foto');
+          const elNoData = document.getElementById('modal-no-data');
+
+          const isValid = (val) => val && val !== 'null' && val !== 'undefined';
+          const hasData = isValid(jam) || isValid(loc);
+
+          if(hasData) {
+              elNoData.classList.add('hidden');
+              elJam.innerText = isValid(jam) ? jam.substring(0,5) : '--:--';
+              elJarak.innerText = isValid(jarak) ? `${jarak} km` : '-';
+              
+              if(isValid(loc)) {
+                  const cleanLoc = loc.replace(/["]/g, '');
+                  elMaps.href = `https://www.google.com/maps/search/?api=1&query=${cleanLoc}`;
+                  elMaps.classList.remove('hidden');
+              } else {
+                  elMaps.classList.add('hidden');
+              }
+
+              // Logic Image Display
+              if(isValid(foto)) {
+                  // Cek apakah ini URL (http) atau Path folder
+                  if (foto.startsWith('http')) {
+                       // Direct URL
+                       elFotoContainer.classList.remove('hidden');
+                       elFotoError.classList.add('hidden');
+                       elImg.src = foto;
+                  } else if (foto.includes('/') && !foto.startsWith('http')) {
+                       // Ini kemungkinan Path Folder (Presensi Masuk_Images/...)
+                       // Tidak bisa ditampilkan langsung
+                       elFotoContainer.classList.add('hidden');
+                       elFotoError.classList.remove('hidden');
+                  } else {
+                       // Kemungkinan Drive ID polos
+                       elFotoContainer.classList.remove('hidden');
+                       elFotoError.classList.add('hidden');
+                       elImg.src = `https://drive.google.com/thumbnail?id=${foto}`;
+                  }
+              } else {
+                  elFotoContainer.classList.add('hidden');
+                  elFotoError.classList.add('hidden');
+              }
+          } else {
+              elJam.innerText = '--:--'; elJarak.innerText = '-';
+              elMaps.classList.add('hidden'); elFotoContainer.classList.add('hidden'); elFotoError.classList.add('hidden');
+              elNoData.classList.remove('hidden');
+          }
+          modal.classList.remove('hidden');
+      };
+
+      window.closeModal = function() { document.getElementById('detailModal').classList.add('hidden'); };
+
+      document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
 </html>
-
-
-
