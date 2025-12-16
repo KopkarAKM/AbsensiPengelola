@@ -3,263 +3,335 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Absensi - Lengkap & Interaktif</title>
+  <title>Dashboard Absensi Pro - Analytics & Report</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Library Markdown dihapus karena tidak ada fitur AI -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
-      body { font-family: 'Inter', sans-serif; }
+      body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
       
-      /* Animasi dan Styling Heatmap */
+      /* Styling Heatmap & Scrollbar */
       .heatmap-cell {
-          width: 26px; height: 26px;
+          width: 28px; height: 28px;
           border-radius: 6px;
-          transition: all 0.2s ease;
-          position: relative;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 10px;
-          font-weight: bold;
-          color: rgba(255,255,255,0.9);
+          display: flex; align-items: center; justify-content: center;
+          font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.95);
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
       }
       .heatmap-cell:hover {
-          transform: scale(1.25);
-          z-index: 10;
-          box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+          transform: scale(1.3); z-index: 20;
+          box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
       }
       
-      /* Warna Status */
-      .status-hadir { background-color: #10b981; } /* v - Hijau */
-      .status-hadir-salah-lokasi { background-color: #84cc16; } /* x */
-      .status-telat { background-color: #eab308; } /* t - Kuning */
-      .status-telat-salah-lokasi { background-color: #ca8a04; } /* tx */
-      .status-sakit { background-color: #ef4444; } /* s - Merah */
-      .status-sakit-salah-lokasi { background-color: #b91c1c; } /* sx */
-      .status-izin { background-color: #8b5cf6; } /* i - Ungu */
-      .status-izin-salah-lokasi { background-color: #7c3aed; } /* ix */
-      .status-tidak-absen { background-color: #6b7280; color: transparent; } /* a - Abu */
-      .status-pulang { background-color: #3b82f6; } /* Pulang Normal - Biru */
-      .status-pulang-cepat { background-color: #f97316; } /* Pulang Cepat - Oranye */
-      .status-lupa { background-color: #93c5fd; } /* Lupa Absen - Biru Muda */
-      .status-libur { background-color: #e5e7eb; color: #9ca3af; } /* h */
-      .status-nodata { background-color: #f3f4f6; color: transparent; } 
+      /* Warna Status Modern */
+      .status-hadir { background: linear-gradient(135deg, #10b981, #059669); } 
+      .status-telat { background: linear-gradient(135deg, #fbbf24, #d97706); } 
+      .status-sakit { background: linear-gradient(135deg, #f87171, #dc2626); } 
+      .status-izin { background: linear-gradient(135deg, #a78bfa, #7c3aed); } 
+      .status-tidak-absen { background-color: #e2e8f0; color: transparent; } 
+      .status-pulang { background: linear-gradient(135deg, #3b82f6, #2563eb); } 
+      .status-pulang-cepat { background: linear-gradient(135deg, #fb923c, #ea580c); } 
+      .status-lupa { background-color: #bfdbfe; color: #1e3a8a; } 
+      .status-libur { background-color: #f1f5f9; color: #cbd5e1; }
+      .status-nodata { background-color: #f8fafc; color: transparent; border: 1px dashed #e2e8f0; } 
 
       .loading {
-          width: 24px; height: 24px;
-          border: 3px solid #f3f3f3;
-          border-top: 3px solid #3b82f6;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
+          border: 3px solid #f3f3f3; border-top: 3px solid #2563eb;
+          border-radius: 50%; width: 24px; height: 24px;
+          animation: spin 0.8s linear infinite;
       }
       
-      /* Efek Hover untuk Kartu Stats */
-      .stat-card {
-          transition: transform 0.2s, box-shadow 0.2s;
-          cursor: pointer;
-      }
-      .stat-card:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-      }
-      .stat-card.active-card {
-          ring: 2px solid #3b82f6;
-          background-color: #f0f9ff;
-      }
+      /* Card Hover Effect */
+      .stat-card { transition: all 0.3s ease; cursor: pointer; }
+      .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 20px -5px rgba(0,0,0,0.1); }
+      .stat-card:active { transform: translateY(0); }
+      .active-card { ring: 2px solid #3b82f6; background-color: #f0f9ff; }
+      
+      /* Custom Scrollbar for Heatmap */
+      .heatmap-scroll::-webkit-scrollbar { height: 8px; }
+      .heatmap-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+      .heatmap-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+      .heatmap-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="text-slate-800">
 
-  <div class="container mx-auto px-4 py-6">
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
     
-    <!-- Header Control Panel -->
-    <header class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-8">
-      <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            📊 Dashboard Presensi
-            <span id="current-period-badge" class="bg-blue-100 text-blue-800 text-xs px-2.5 py-0.5 rounded-full hidden">...</span>
-          </h1>
-          <p class="text-gray-500 text-sm mt-1">Klik kartu statistik untuk melihat detail karyawan.</p>
-        </div>
+    <!-- Header Area -->
+    <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mb-8 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-3">
+          <span class="bg-blue-600 text-white p-2 rounded-lg">📊</span>
+          Dashboard Absensi Pro
+        </h1>
+        <p class="text-slate-500 text-sm mt-2 ml-1">Pantau performa kehadiran tim secara real-time (via GAS API).</p>
+      </div>
 
-        <!-- Filter Controls -->
-        <div class="flex flex-wrap gap-3 bg-gray-50 p-2 rounded-lg border border-gray-200">
-          <div class="flex gap-2">
-             <select id="filter-month" onchange="renderDashboard()" class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2"><option value="">Bulan...</option></select>
-             <select id="filter-year" onchange="renderDashboard()" class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2"><option value="">Tahun...</option></select>
-          </div>
-          <div class="w-px bg-gray-300 mx-1"></div>
-          <select id="filter-employee" onchange="renderDashboard()" class="bg-white border border-gray-300 text-gray-700 text-sm rounded-md p-2 min-w-[150px]">
-            <option value="all">Semua Tim</option>
-          </select>
-          <button onclick="initApp()" class="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-md transition-colors">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-          </button>
-        </div>
+      <!-- Controls -->
+      <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-center">
+         <!-- Tombol AI dihapus dari sini -->
+
+         <!-- View Mode Toggle -->
+         <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+             <button onclick="switchView('monthly')" id="btn-view-monthly" class="px-3 py-1.5 text-xs font-bold rounded-md shadow-sm bg-white text-blue-600 transition-all">Bulanan</button>
+             <button onclick="switchView('yearly')" id="btn-view-yearly" class="px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all">Tahunan</button>
+         </div>
+
+         <div class="w-px bg-slate-300 h-8 mx-1 hidden sm:block"></div>
+
+         <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+             <select id="filter-month" onchange="renderDashboard()" class="bg-transparent text-sm font-semibold text-slate-700 py-2 px-3 outline-none cursor-pointer hover:bg-white rounded-md transition"><option value="">Bulan...</option></select>
+             <div class="w-px bg-slate-300 my-2"></div>
+             <select id="filter-year" onchange="renderDashboard()" class="bg-transparent text-sm font-semibold text-slate-700 py-2 px-3 outline-none cursor-pointer hover:bg-white rounded-md transition"><option value="">Tahun...</option></select>
+         </div>
+         
+         <button onclick="exportCSV()" class="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Export
+         </button>
+         
+         <button onclick="initApp()" class="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+         </button>
       </div>
     </header>
 
     <!-- State Loading & Error -->
-    <div id="loading-state" class="text-center py-20 hidden">
-      <div class="loading mx-auto mb-4"></div>
-      <p class="text-gray-600 font-medium animate-pulse">Sinkronisasi Sheet...</p>
+    <div id="loading-state" class="flex flex-col items-center justify-center py-24 hidden">
+      <div class="loading mb-4"></div>
+      <p class="text-slate-500 font-medium animate-pulse">Menghubungkan ke Google Apps Script...</p>
     </div>
-    <div id="error-state" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-8 text-center">
-      <h3 class="text-red-800 font-bold text-lg mb-2">Koneksi Gagal</h3>
-      <p class="text-red-600 text-sm" id="error-message"></p>
-      <button onclick="initApp()" class="mt-4 text-sm text-red-700 underline">Coba Lagi</button>
+    <div id="error-state" class="hidden bg-red-50 border border-red-200 rounded-xl p-8 mb-8 text-center max-w-lg mx-auto">
+      <div class="text-red-500 text-4xl mb-3">⚠️</div>
+      <h3 class="text-red-900 font-bold text-lg mb-2">Gagal Memuat Data</h3>
+      <p class="text-red-600 text-sm mb-4" id="error-message"></p>
+      <button onclick="initApp()" class="px-4 py-2 bg-white border border-red-300 text-red-700 rounded-lg hover:bg-red-50 text-sm font-medium transition">Coba Lagi</button>
     </div>
 
-    <!-- Konten Dashboard -->
-    <div id="dashboard-content" class="hidden space-y-6">
+    <!-- Main Dashboard -->
+    <div id="dashboard-content" class="hidden space-y-8">
       
-      <!-- Stats Cards (Grid 3x2) - KLIK UNTUK DETAIL -->
-      <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- Baris 1 -->
-        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-green-500" onclick="showDetails('hadir')">
-            <p class="text-xs text-gray-500 uppercase font-bold">Hadir Tepat</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-hadir">0</p>
-            <p class="text-xs text-green-600 mt-1">Klik untuk detail</p>
-        </div>
-        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-yellow-500" onclick="showDetails('telat')">
-            <p class="text-xs text-gray-500 uppercase font-bold">Terlambat Masuk</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-telat">0</p>
-            <p class="text-xs text-yellow-600 mt-1">Klik untuk detail</p>
-        </div>
-        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-red-500" onclick="showDetails('izin')">
-            <p class="text-xs text-gray-500 uppercase font-bold">Sakit/Izin</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-izin">0</p>
-            <p class="text-xs text-red-600 mt-1">Klik untuk detail</p>
+      <!-- Summary Stats (Clickable) -->
+      <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+        <!-- 1. Hadir (Updated) -->
+        <div class="stat-card bg-white p-4 rounded-xl border border-slate-200 group" onclick="showDetails('hadir')">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hadir (Tepat)</p>
+                    <h3 class="text-2xl font-bold text-slate-800 mt-1" id="stat-hadir">0</h3>
+                </div>
+                <div class="text-green-600 bg-green-50 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+            </div>
+            <!-- Menampilkan Total Kehadiran (Hadir + Telat) -->
+            <div class="mt-2 pt-2 border-t border-slate-50 flex justify-between items-center">
+                <span class="text-[10px] text-slate-500 font-medium">Total Masuk: <b id="stat-total-hadir" class="text-slate-700">0</b></span>
+                <span class="text-[10px] text-green-600 opacity-0 group-hover:opacity-100 transition-opacity">Detail &rarr;</span>
+            </div>
         </div>
         
-        <!-- Baris 2 -->
-        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-orange-500" onclick="showDetails('pulangCepat')">
-            <p class="text-xs text-gray-500 uppercase font-bold">Pulang Cepat (< 17:00)</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-pulang-cepat">0</p>
-            <p class="text-xs text-orange-600 mt-1">Klik untuk detail</p>
+        <!-- 2. Terlambat -->
+        <div class="stat-card bg-white p-4 rounded-xl border border-slate-200 group" onclick="showDetails('telat')">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Terlambat</p>
+            <div class="flex justify-between items-end mt-1">
+                <h3 class="text-2xl font-bold text-slate-800" id="stat-telat">0</h3>
+                <div class="text-yellow-600 bg-yellow-50 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+            </div>
+            <p class="text-[10px] text-yellow-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Klik untuk detail</p>
         </div>
-        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-blue-300" onclick="showDetails('tidakPulang')">
-            <p class="text-xs text-gray-500 uppercase font-bold">Tidak Absen Pulang</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-tidak-pulang">0</p>
-            <p class="text-xs text-blue-400 mt-1">Klik untuk detail</p>
+
+        <!-- 3. Pulang Cepat -->
+        <div class="stat-card bg-white p-4 rounded-xl border border-slate-200 group" onclick="showDetails('pulangCepat')">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pulang Cepat</p>
+            <div class="flex justify-between items-end mt-1">
+                <h3 class="text-2xl font-bold text-slate-800" id="stat-early">0</h3>
+                <div class="text-orange-600 bg-orange-50 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></div>
+            </div>
+            <p class="text-[10px] text-orange-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Klik untuk detail</p>
         </div>
-        <div class="stat-card bg-white p-4 rounded-xl shadow-sm border border-gray-100 border-l-4 border-l-gray-500" onclick="showDetails('alpa')">
-            <p class="text-xs text-gray-500 uppercase font-bold">Alpa / Tanpa Ket.</p>
-            <p class="text-3xl font-bold text-gray-800 mt-1" id="stat-alpa">0</p>
-            <p class="text-xs text-gray-500 mt-1">Klik untuk detail</p>
+
+        <!-- 4. Tidak Absen Pulang -->
+        <div class="stat-card bg-white p-4 rounded-xl border border-slate-200 group" onclick="showDetails('tidakPulang')">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tdk Absen Plg</p>
+            <div class="flex justify-between items-end mt-1">
+                <h3 class="text-2xl font-bold text-slate-800" id="stat-no-checkout">0</h3>
+                <div class="text-blue-500 bg-blue-50 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
+            </div>
+            <p class="text-[10px] text-blue-500 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Klik untuk detail</p>
+        </div>
+
+        <!-- 5. Sakit / Izin -->
+        <div class="stat-card bg-white p-4 rounded-xl border border-slate-200 group" onclick="showDetails('izin')">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sakit / Izin</p>
+            <div class="flex justify-between items-end mt-1">
+                <h3 class="text-2xl font-bold text-slate-800" id="stat-izin">0</h3>
+                <div class="text-purple-600 bg-purple-50 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg></div>
+            </div>
+            <p class="text-[10px] text-purple-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Klik untuk detail</p>
+        </div>
+
+        <!-- 6. Alpha -->
+        <div class="stat-card bg-white p-4 rounded-xl border border-slate-200 group" onclick="showDetails('alpa')">
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tdk Absen Msk</p>
+            <div class="flex justify-between items-end mt-1">
+                <h3 class="text-2xl font-bold text-slate-800" id="stat-alpa">0</h3>
+                <div class="text-red-600 bg-red-50 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></div>
+            </div>
+            <p class="text-[10px] text-red-600 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">Klik untuk detail</p>
         </div>
       </div>
 
-      <!-- [BARU] Tabel Detail Dinamis -->
-      <div id="detail-list-container" class="hidden bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden animate-fade-in-down">
-          <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h3 class="font-bold text-gray-800" id="detail-list-title">Detail Data</h3>
-              <button onclick="hideDetails()" class="text-gray-400 hover:text-red-500">
-                  <span class="sr-only">Tutup</span>
-                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-          </div>
-          <div class="overflow-x-auto max-h-64 overflow-y-auto">
-              <table class="w-full text-sm text-left">
-                  <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
-                      <tr>
-                          <th class="px-6 py-3">Nama Karyawan</th>
-                          <th class="px-6 py-3">Tanggal</th>
-                          <th class="px-6 py-3">Keterangan</th>
-                      </tr>
-                  </thead>
-                  <tbody id="detail-list-body" class="divide-y divide-gray-100">
-                      <!-- Isi tabel akan digenerate JS -->
-                  </tbody>
-              </table>
-          </div>
+      <!-- Detail Table (Restored & Dynamic) -->
+      <div id="detail-list-container" class="hidden bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden ring-1 ring-slate-900/5 animate-fade-in-down">
+         <div class="bg-slate-50/50 px-6 py-4 border-b border-slate-100 flex justify-between items-center backdrop-blur-sm">
+             <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                 <span class="w-2 h-2 rounded-full bg-blue-500"></span> 
+                 <span id="detail-list-title">Detail Data</span>
+             </h3>
+             <button onclick="hideDetails()" class="text-slate-400 hover:text-red-500 transition"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+         </div>
+         <div class="overflow-y-auto max-h-80">
+             <table class="w-full text-sm text-left">
+                 <thead class="text-xs text-slate-500 uppercase bg-slate-50 sticky top-0 z-10">
+                     <tr>
+                         <th class="px-6 py-3">Nama Karyawan</th>
+                         <th class="px-6 py-3" id="th-date">Tanggal / Info</th>
+                         <th class="px-6 py-3">Keterangan</th>
+                     </tr>
+                 </thead>
+                 <tbody id="detail-list-body" class="divide-y divide-slate-100">
+                     <!-- Isi tabel akan digenerate JS -->
+                 </tbody>
+             </table>
+         </div>
       </div>
 
-      <!-- Heatmap -->
-      <div class="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-        <div class="p-5 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <h2 class="text-lg font-bold text-gray-800">🔥 Grid Absensi Bulanan</h2>
-          <div class="flex flex-wrap justify-center gap-3 text-xs text-gray-600">
-             <div class="flex items-center"><span class="w-3 h-3 bg-green-500 rounded-sm mr-1"></span>Hadir</div>
-             <div class="flex items-center"><span class="w-3 h-3 bg-yellow-500 rounded-sm mr-1"></span>Telat</div>
-             <div class="flex items-center"><span class="w-3 h-3 bg-blue-500 rounded-sm mr-1"></span>Pulang</div>
-             <div class="flex items-center"><span class="w-3 h-3 bg-orange-500 rounded-sm mr-1"></span>Plg Cepat</div>
-             <div class="flex items-center"><span class="w-3 h-3 bg-blue-300 rounded-sm mr-1"></span>Lupa Plg</div>
-             <div class="flex items-center"><span class="w-3 h-3 bg-red-500 rounded-sm mr-1"></span>Sakit/Izin</div>
-             <div class="flex items-center"><span class="w-3 h-3 bg-gray-500 rounded-sm mr-1"></span>Alpa</div>
+      <!-- Charts Section: Trend & Heatmap -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Column 1: Trend Chart Only -->
+          <div class="space-y-6 lg:col-span-1">
+              <!-- Tren Kehadiran -->
+              <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <h3 class="font-bold text-slate-700 mb-4 text-sm flex items-center gap-2">
+                      <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg> 
+                      <span id="trend-title">Tren Bulanan</span>
+                  </h3>
+                  <div class="h-[200px] w-full">
+                      <canvas id="chartTrend"></canvas>
+                  </div>
+              </div>
           </div>
-        </div>
-        <div class="overflow-x-auto p-2"><div id="heatmap-container" class="min-w-[800px]"></div></div>
+
+          <!-- Column 2: Heatmap OR Yearly Table (Wider) -->
+          <div class="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
+              <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                  <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <span id="grid-title">🔥 Grid Absensi</span>
+                    <span id="current-period-badge" class="bg-blue-100 text-blue-800 text-[10px] px-2 py-0.5 rounded-full hidden uppercase tracking-wider">...</span>
+                  </h2>
+                  
+                  <!-- Search & Filter Controls -->
+                  <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      <!-- Status Filter Dropdown -->
+                      <select id="filter-status" onchange="handleSearch()" class="bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2 outline-none cursor-pointer">
+                          <option value="all">Semua Status</option>
+                          <option value="late">⚠️ Terlambat</option>
+                          <option value="early">🏃 Pulang Cepat</option>
+                          <option value="no_checkout">🤔 Tidak Absen Pulang</option>
+                          <option value="alpha">❌ Tidak Absen Masuk</option>
+                      </select>
+
+                      <!-- Search Bar -->
+                      <div class="relative w-full sm:w-48">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                        </div>
+                        <input type="text" id="search-input" onkeyup="handleSearch()" placeholder="Cari nama..." class="bg-slate-50 border border-slate-200 text-slate-900 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-9 p-2 transition">
+                      </div>
+                  </div>
+              </div>
+
+              <!-- Legend (Only for Monthly) -->
+              <div id="legend-container" class="bg-slate-50 px-5 py-2 border-b border-slate-100 flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-slate-500">
+                  <div class="flex items-center"><span class="w-2 h-2 bg-green-500 rounded-full mr-1.5"></span>Hadir</div>
+                  <div class="flex items-center"><span class="w-2 h-2 bg-yellow-500 rounded-full mr-1.5"></span>Telat</div>
+                  <div class="flex items-center"><span class="w-2 h-2 bg-red-500 rounded-full mr-1.5"></span>Sakit/Izin</div>
+                  <div class="flex items-center"><span class="w-2 h-2 bg-slate-400 rounded-full mr-1.5"></span>Alpa</div>
+                  <div class="flex items-center"><span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5"></span>Pulang</div>
+                  <div class="flex items-center"><span class="w-2 h-2 bg-orange-500 rounded-full mr-1.5"></span>Plg Cepat</div>
+                  <div class="flex items-center"><span class="w-2 h-2 bg-blue-300 rounded-full mr-1.5"></span>Lupa Pulang</div>
+              </div>
+
+              <div class="overflow-hidden flex-1 relative">
+                  <div class="overflow-x-auto h-full heatmap-scroll p-2">
+                      <div id="heatmap-container" class="min-w-[800px]"></div>
+                  </div>
+              </div>
+          </div>
       </div>
       
-      <!-- Charts -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
-            <h3 class="font-bold text-gray-700 mb-4">Komposisi Kedisiplinan</h3>
-            <div class="h-[250px] w-full">
-               <canvas id="chartComposition"></canvas>
-            </div>
-          </div>
-          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-            <h3 class="font-bold text-gray-700 mb-4">🏆 Top Rajin (Skor)</h3>
-            <div id="top-performer-list" class="space-y-3"></div>
-          </div>
-      </div>
     </div>
   </div>
 
-  <!-- Modal Drill-Down (Popup) -->
+  <!-- Modal Detail Employee (Tanpa Fitur AI) -->
   <div id="detailModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-    <div class="fixed inset-0 bg-gray-900 bg-opacity-60 transition-opacity backdrop-blur-sm" onclick="closeModal()"></div>
-    <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+    <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+    <div class="fixed inset-0 z-10 overflow-y-auto">
       <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
-        <div class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-gray-200">
-          <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex justify-between items-center">
-            <h3 class="text-lg font-bold text-white" id="modal-title">Detail Aktivitas</h3>
-            <button onclick="closeModal()" class="text-blue-100 hover:text-white text-2xl leading-none">&times;</button>
-          </div>
-          <div class="px-6 py-6 space-y-5">
-            <div class="flex items-center space-x-4 border-b border-gray-100 pb-4">
-               <div class="w-12 h-12 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl border border-blue-100" id="modal-avatar">A</div>
-               <div>
-                  <h4 class="text-lg font-bold text-gray-900" id="modal-nama">-</h4>
-                  <p class="text-sm text-gray-500" id="modal-tanggal">-</p>
-               </div>
-               <div class="ml-auto flex flex-col items-end">
-                   <span id="modal-status-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 mb-1">-</span>
-                   <span class="text-[10px] text-gray-400 font-mono" id="modal-tipe">MASUK</span>
-               </div>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <p class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Jam Catat</p>
-                    <p class="text-xl font-mono font-bold text-gray-800" id="modal-jam">--:--</p>
+        <div class="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-md ring-1 ring-slate-900/5">
+            <!-- Header Modal -->
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800" id="modal-nama">-</h3>
+                    <p class="text-xs text-slate-500" id="modal-tanggal">-</p>
                 </div>
-                <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
-                    <p class="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Jarak Kantor</p>
-                    <p class="text-sm font-medium text-gray-800 mt-1 truncate" id="modal-jarak">-</p>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 hover:bg-slate-100 transition"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+            </div>
+            
+            <div class="px-6 py-6 space-y-6">
+                <!-- Status & Time -->
+                <div class="flex items-center justify-between">
+                    <div class="text-center">
+                        <span id="modal-status-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">-</span>
+                        <p class="text-[10px] text-slate-400 mt-1 uppercase tracking-widest" id="modal-tipe">TYPE</p>
+                    </div>
+                    <div class="text-right">
+                         <p class="text-3xl font-mono font-bold text-slate-800 tracking-tight" id="modal-jam">--:--</p>
+                         <p class="text-xs text-slate-500" id="modal-jarak">- km dari kantor</p>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="space-y-3">
+                    <a id="modal-maps-link" href="#" target="_blank" class="flex items-center justify-center w-full px-4 py-2.5 border border-slate-300 shadow-sm text-sm font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition-colors gap-2">
+                        <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path></svg>
+                        Lihat Lokasi Maps
+                    </a>
+                </div>
+
+                <!-- Photo Evidence -->
+                <div id="modal-foto-container" class="hidden">
+                   <p class="text-xs text-slate-500 mb-2 font-semibold uppercase">Bukti Foto</p>
+                   <div class="relative aspect-[3/4] w-full bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-inner group">
+                     <img id="modal-foto" src="" alt="Bukti" class="absolute inset-0 w-full h-full object-cover transition duration-500 group-hover:scale-105">
+                   </div>
+                </div>
+
+                <!-- Fallbacks -->
+                <div id="modal-foto-error" class="hidden bg-yellow-50 p-3 rounded-lg text-xs text-yellow-700 border border-yellow-200 flex items-start gap-2">
+                   <svg class="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                   <span>Foto tersedia namun akses terbatas (Private Drive).</span>
+                </div>
+                <div id="modal-no-data" class="hidden text-center py-4 bg-slate-50 rounded-lg border border-dashed border-slate-300">
+                    <p class="text-slate-400 text-sm">Tidak ada data digital tersimpan.</p>
                 </div>
             </div>
-            <a id="modal-maps-link" href="#" target="_blank" class="flex items-center justify-center w-full px-4 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors group">
-              <span class="mr-2">📍</span> Buka Lokasi di Maps
-            </a>
-            <div id="modal-foto-container" class="hidden">
-               <p class="text-xs text-gray-500 mb-2 font-semibold">📷 Bukti Foto</p>
-               <div class="relative aspect-[3/4] w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200 shadow-inner group">
-                 <img id="modal-foto" src="" alt="Bukti" class="absolute inset-0 w-full h-full object-cover">
-               </div>
-            </div>
-            <div id="modal-foto-error" class="hidden bg-yellow-50 p-3 rounded-lg text-xs text-yellow-700 border border-yellow-100">
-               ⚠️ Foto tersedia (Path), bukan Link Publik.
-            </div>
-            <div id="modal-no-data" class="hidden text-center py-6">
-                <div class="inline-block p-3 rounded-full bg-gray-100 mb-2">🚫</div>
-                <p class="text-gray-500 text-sm italic">Data digital tidak ditemukan.</p>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -268,120 +340,101 @@
   <script>
       // --- KONFIGURASI ---
       const CONFIG = {
-          sheetId: '1wCVC1jC6cSp5jIRUxTlDLOM-CyUNnSuTe8tegh3Y8QA', 
-          sheetNames: {
-              data: 'Data',
-              arrayMasuk: 'Array Absen Masuk',
-              arrayPulang: 'Array Absen Pulang'
-          },
-          jamPulangNormal: '17:00:00' // Setting Jam Pulang Standar
+          apiUrl: 'https://script.google.com/macros/s/AKfycbz6YajqskEFxko5jVtpK8RS3oI-LUHbaLCUmgCFa-xHZIWSGrxJfB66ng0O0HqR4Arf-g/exec',
+          jamMasukNormal: '08:00:00', // Batas waktu masuk
+          jamPulangNormal: '17:00:00'
       };
+      
+      // API Key Removed for Safety
 
       let rawData = { masterEmp: [], historyMasuk: [], historyPulang: [] };
       let processedData = {};
       let availablePeriods = [];
       let charts = {};
+      let currentGridData = []; 
+      let currentYearlyData = []; 
+      let viewMode = 'monthly'; 
+      let selectedEmployeeName = ''; 
       
-      // [BARU] Variable global untuk menyimpan detail per kategori
-      let detailedStats = {
-          hadir: [],
-          telat: [],
-          izin: [],
-          pulangCepat: [],
-          tidakPulang: [],
-          alpa: []
-      };
+      let detailedStats = { hadir: [], telat: [], izin: [], pulangCepat: [], tidakPulang: [], alpa: [] };
 
       async function initApp() {
           const loading = document.getElementById('loading-state');
           const errorDiv = document.getElementById('error-state');
           const content = document.getElementById('dashboard-content');
           
-          loading.classList.remove('hidden');
-          content.classList.add('hidden');
-          errorDiv.classList.add('hidden');
+          loading.classList.remove('hidden'); content.classList.add('hidden'); errorDiv.classList.add('hidden');
 
           try {
-              const [rowsData, rowsMasuk, rowsPulang] = await Promise.all([
-                  fetchSheet(CONFIG.sheetNames.data),
-                  fetchSheet(CONFIG.sheetNames.arrayMasuk),
-                  fetchSheet(CONFIG.sheetNames.arrayPulang)
-              ]);
-
-              rawData.masterEmp = parseMasterData(rowsData);
+              const res = await fetch(CONFIG.apiUrl);
+              if(!res.ok) throw new Error("Gagal menghubungi server GAS.");
+              
+              const json = await res.json();
+              if(json.error) throw new Error(json.error);
+              
+              rawData.masterEmp = parseMasterData(json.master);
               processedData = {}; 
-              parseHistoryArray(rowsMasuk, 'Masuk');
-              parseHistoryArray(rowsPulang, 'Pulang');
+              parseRawData(json.masuk, 'Masuk');
+              parseRawData(json.pulang, 'Pulang');
+              
               populatePeriodFilters();
               
               if(availablePeriods.length > 0) {
-                  document.getElementById('filter-year').value = availablePeriods[0].y;
-                  document.getElementById('filter-month').value = availablePeriods[0].m;
+                  const curY = document.getElementById('filter-year').value;
+                  if(!curY) {
+                      document.getElementById('filter-year').value = availablePeriods[0].y;
+                      document.getElementById('filter-month').value = availablePeriods[0].m;
+                  }
               }
 
               renderDashboard();
-              loading.classList.add('hidden');
-              content.classList.remove('hidden');
+              loading.classList.add('hidden'); content.classList.remove('hidden');
 
           } catch (err) {
               console.error(err);
-              loading.classList.add('hidden');
-              errorDiv.classList.remove('hidden');
-              document.getElementById('error-message').textContent = `Gagal memuat: ${err.message}.`;
+              loading.classList.add('hidden'); errorDiv.classList.remove('hidden');
+              document.getElementById('error-message').textContent = err.message || "Gagal mengambil data.";
           }
       }
 
-      async function fetchSheet(sheetName) {
-          const url = `https://docs.google.com/spreadsheets/d/${CONFIG.sheetId}/gviz/tq?tqx=out:json&sheet=${sheetName}&headers=1`;
-          const res = await fetch(url);
-          if(!res.ok) throw new Error(`HTTP Error ${res.status}`);
-          const text = await res.text();
-          const json = JSON.parse(text.substr(47).slice(0, -2));
-          return json.table.rows;
+      function parseMasterData(rows) { 
+          if (!rows || rows.length < 2) return [];
+          return rows.slice(1).map(r => r[0]).filter(n => n && n !== 'Nama' && !n.startsWith('a00')); 
       }
 
-      function parseMasterData(rows) {
-          return rows.map(r => r.c[1]?.v).filter(n => n && n !== 'Nama');
-      }
-
-      function parseHistoryArray(rows, type) {
-          rows.forEach(row => {
-              const v = (i) => (row.c[i] && row.c[i].v !== null) ? row.c[i].v : null;
+      function parseRawData(rows, type) {
+          if (!rows || rows.length < 2) return;
+          
+          const headers = rows[0].map(h => String(h).toLowerCase());
+          let nameIdx = headers.findIndex(h => h.includes('nama') || h.includes('name'));
+          if (nameIdx === -1) nameIdx = 5; 
+          
+          const dataRows = rows.slice(1);
+          
+          dataRows.forEach(row => {
+              const dateVal = row[2];
+              const name = row[nameIdx]; 
+              const code = row[14]; 
               
-              const dateVal = v(2);
-              const name = v(5);
-              const code = v(14); // Index 14 = 'ico'
-              
-              if (!dateVal || !name || name === 'Nama' || !code) return; 
+              if (!dateVal || !name || name === 'Nama' || !code || name.startsWith('a00')) return; 
 
               let year, month, day;
-              if (typeof dateVal === 'string' && dateVal.includes('-')) {
-                  const parts = dateVal.split('-');
-                  year = parseInt(parts[0]);
-                  month = parseInt(parts[1]);
-                  day = parseInt(parts[2]);
+              if (typeof dateVal === 'string' && (dateVal.includes('-') || dateVal.includes('/'))) {
+                   const d = new Date(dateVal);
+                   if(!isNaN(d)) { year = d.getFullYear(); month = d.getMonth() + 1; day = d.getDate(); }
               } else if (String(dateVal).includes('Date')) {
-                  const d = eval(`new ${dateVal}`);
-                  year = d.getFullYear();
-                  month = d.getMonth() + 1;
-                  day = d.getDate();
-              } else {
-                  return;
+                  const d = eval(`new ${dateVal}`); year = d.getFullYear(); month = d.getMonth() + 1; day = d.getDate();
               }
+              
+              if(!year) return; 
 
               if(!processedData[year]) processedData[year] = {};
               if(!processedData[year][month]) processedData[year][month] = {};
               if(!processedData[year][month][name]) processedData[year][month][name] = {};
               if(!processedData[year][month][name][day]) processedData[year][month][name][day] = { masuk: null, pulang: null };
 
-              const dataObj = {
-                  code: code,
-                  time: v(3), // Jam (String "17:00:42")
-                  loc: v(9),
-                  photo: v(10),
-                  jarak: v(11)
-              };
-
+              const dataObj = { code: code, time: row[3], loc: row[9], photo: row[10], jarak: row[11] };
+              
               if(type === 'Masuk') processedData[year][month][name][day].masuk = dataObj;
               else processedData[year][month][name][day].pulang = dataObj;
           });
@@ -392,34 +445,168 @@
           availablePeriods = [];
           const selYear = document.getElementById('filter-year');
           const selMonth = document.getElementById('filter-month');
-          selYear.innerHTML = ''; selMonth.innerHTML = '';
+          const currentY = selYear.value; const currentM = selMonth.value;
 
+          selYear.innerHTML = ''; selMonth.innerHTML = '';
           if(years.length === 0) years.push(new Date().getFullYear());
           
           years.forEach(y => {
-              const opt = document.createElement('option');
-              opt.value = y; opt.text = y;
-              selYear.appendChild(opt);
-              if(processedData[y]) {
-                  Object.keys(processedData[y]).forEach(m => availablePeriods.push({y:y, m:parseInt(m)}));
-              }
+              const opt = document.createElement('option'); opt.value = y; opt.text = y; selYear.appendChild(opt);
+              if(processedData[y]) Object.keys(processedData[y]).forEach(m => availablePeriods.push({y:y, m:parseInt(m)}));
           });
           availablePeriods.sort((a,b) => (b.y - a.y) || (b.m - a.m));
           
           const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
           monthNames.forEach((name, idx) => {
-              const opt = document.createElement('option');
-              opt.value = idx + 1; opt.text = name;
-              selMonth.appendChild(opt);
+              const opt = document.createElement('option'); opt.value = idx + 1; opt.text = name; selMonth.appendChild(opt);
           });
+          
+          if(currentY) selYear.value = currentY;
+          if(currentM) selMonth.value = currentM;
+      }
+
+      function switchView(mode) {
+          viewMode = mode;
+          const btnMonth = document.getElementById('btn-view-monthly');
+          const btnYear = document.getElementById('btn-view-yearly');
+          const monthFilter = document.getElementById('filter-month');
+          const legend = document.getElementById('legend-container');
+
+          if(mode === 'yearly') {
+              btnYear.className = "px-3 py-1.5 text-xs font-bold rounded-md shadow-sm bg-white text-blue-600 transition-all";
+              btnMonth.className = "px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all";
+              monthFilter.disabled = true;
+              monthFilter.classList.add('opacity-50', 'cursor-not-allowed');
+              legend.classList.add('hidden');
+              document.getElementById('grid-title').innerText = "📋 Resume Tahunan";
+              document.getElementById('trend-title').innerText = "Tren Tahunan (Jan-Des)";
+          } else {
+              btnMonth.className = "px-3 py-1.5 text-xs font-bold rounded-md shadow-sm bg-white text-blue-600 transition-all";
+              btnYear.className = "px-3 py-1.5 text-xs font-bold rounded-md text-slate-500 hover:text-slate-700 transition-all";
+              monthFilter.disabled = false;
+              monthFilter.classList.remove('opacity-50', 'cursor-not-allowed');
+              legend.classList.remove('hidden');
+              document.getElementById('grid-title').innerText = "🔥 Grid Absensi";
+              document.getElementById('trend-title').innerText = "Tren Bulanan (Harian)";
+          }
+          renderDashboard();
       }
 
       function renderDashboard() {
           const year = parseInt(document.getElementById('filter-year').value);
-          const month = parseInt(document.getElementById('filter-month').value);
-          const filterEmp = document.getElementById('filter-employee').value;
+          hideDetails(); 
+          if (viewMode === 'yearly') renderYearlyDashboard(year);
+          else renderMonthlyDashboard(year);
+      }
 
+      // Helper untuk konversi waktu ke menit
+      function timeToMinutes(timeStr) {
+          if (!timeStr || typeof timeStr !== 'string') return 9999; // Return high value if invalid
+          const parts = timeStr.split(':');
+          const hours = parseInt(parts[0]) || 0;
+          const minutes = parseInt(parts[1]) || 0;
+          return hours * 60 + minutes;
+      }
+
+      function renderYearlyDashboard(year) {
+          const badge = document.getElementById('current-period-badge');
+          badge.textContent = `TAHUN ${year}`;
+          badge.classList.remove('hidden');
+          
+          let summary = {}; 
+          const allEmployees = [...rawData.masterEmp];
+          allEmployees.forEach(n => { summary[n] = { nama: n, hadir: 0, telat: 0, izin: 0, alpa: 0, pulangCepat: 0, tidakPulang: 0, score: 0 }; });
+
+          let monthlyTrend = Array(12).fill(0).map(() => ({ hadir:0, telat:0 }));
+          
+          detailedStats = { hadir: [], telat: [], izin: [], pulangCepat: [], tidakPulang: [], alpa: [] };
+
+          if(processedData[year]) {
+              Object.keys(processedData[year]).forEach(mStr => {
+                  const m = parseInt(mStr);
+                  const monthData = processedData[year][m];
+                  Object.keys(monthData).forEach(name => {
+                      if(!summary[name]) summary[name] = { nama: name, hadir: 0, telat: 0, izin: 0, alpa: 0, pulangCepat: 0, tidakPulang: 0, score: 0 };
+                      Object.values(monthData[name]).forEach(d => {
+                          const c = d.masuk ? d.masuk.code : '';
+                          const cP = d.pulang ? d.pulang.code : '';
+                          const tP = d.pulang ? d.pulang.time : null;
+                          const tM = d.masuk ? d.masuk.time : null;
+
+                          let isLate = ['t', 'tx'].includes(c);
+                          
+                          if (tM) {
+                              const mTimeVal = timeToMinutes(tM);
+                              const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
+                              if (mTimeVal <= limitVal) isLate = false;
+                              if (mTimeVal > limitVal) isLate = true;
+                          }
+
+                          if (isLate) {
+                              summary[name].telat++; 
+                              monthlyTrend[m-1].telat++;
+                          } else if (['v', 'x', 't', 'tx'].includes(c)) {
+                              summary[name].hadir++; 
+                              monthlyTrend[m-1].hadir++;
+                          }
+
+                          if(['s','sx','i','ix'].includes(c)) summary[name].izin++;
+                          if(c === 'a') summary[name].alpa++;
+                          
+                          if( (['v','t','x','tx'].includes(c)) && (!cP || cP === 'a') ) summary[name].tidakPulang++;
+                          if (cP && tP) {
+                              const pTimeVal = timeToMinutes(tP);
+                              const limitPVal = timeToMinutes(CONFIG.jamPulangNormal);
+                              if (pTimeVal < limitPVal) summary[name].pulangCepat++;
+                          }
+
+                          if(c === 'v') summary[name].score += 10; 
+                          else if(c === 'x') summary[name].score += 8; 
+                          else if(c === 't') summary[name].score += 5; 
+                          else if(c === 'a') summary[name].score -= 5;
+                          if( (['v','t','x','tx'].includes(c)) && (!cP || cP === 'a') ) summary[name].score -= 2;
+                          if (cP && tP) {
+                              const pTimeVal = timeToMinutes(tP);
+                              const limitPVal = timeToMinutes(CONFIG.jamPulangNormal);
+                              if (pTimeVal < limitPVal) summary[name].score -= 1;
+                          }
+                      });
+                  });
+              });
+          }
+
+          currentYearlyData = Object.values(summary).sort((a,b) => b.score - a.score);
+          
+          let totalS = { hadir: 0, telat: 0, izin: 0, alpa: 0, pulangCepat: 0, tidakPulang: 0 };
+          currentYearlyData.forEach(x => {
+              totalS.hadir += x.hadir; totalS.telat += x.telat; totalS.izin += x.izin; totalS.alpa += x.alpa;
+              totalS.pulangCepat += x.pulangCepat; totalS.tidakPulang += x.tidakPulang;
+              
+              if(x.hadir > 0) detailedStats.hadir.push({name: x.nama, date: `Total: ${x.hadir}`, desc: 'Akumulasi Setahun'});
+              if(x.telat > 0) detailedStats.telat.push({name: x.nama, date: `Total: ${x.telat}`, desc: 'Akumulasi Setahun'});
+              if(x.izin > 0) detailedStats.izin.push({name: x.nama, date: `Total: ${x.izin}`, desc: 'Akumulasi Setahun'});
+              if(x.alpa > 0) detailedStats.alpa.push({name: x.nama, date: `Total: ${x.alpa}`, desc: 'Akumulasi Setahun'});
+              if(x.pulangCepat > 0) detailedStats.pulangCepat.push({name: x.nama, date: `Total: ${x.pulangCepat}`, desc: 'Akumulasi Setahun'});
+              if(x.tidakPulang > 0) detailedStats.tidakPulang.push({name: x.nama, date: `Total: ${x.tidakPulang}`, desc: 'Akumulasi Setahun'});
+          });
+          
+          document.getElementById('stat-hadir').innerText = totalS.hadir;
+          document.getElementById('stat-total-hadir').innerText = totalS.hadir + totalS.telat;
+          
+          document.getElementById('stat-telat').innerText = totalS.telat;
+          document.getElementById('stat-izin').innerText = totalS.izin;
+          document.getElementById('stat-alpa').innerText = totalS.alpa;
+          document.getElementById('stat-early').innerText = totalS.pulangCepat;
+          document.getElementById('stat-no-checkout').innerText = totalS.tidakPulang;
+
+          renderTrendChart(monthlyTrend, 12, ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des']);
+          renderYearlyTable(currentYearlyData);
+      }
+
+      function renderMonthlyDashboard(year) {
+          const month = parseInt(document.getElementById('filter-month').value);
           const monthName = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex]?.text || '-';
+          
           const badge = document.getElementById('current-period-badge');
           badge.textContent = `${monthName} ${year}`;
           badge.classList.remove('hidden');
@@ -429,77 +616,113 @@
           const allEmployees = [...rawData.masterEmp];
           
           if(processedData[year] && processedData[year][month]) {
-              Object.keys(processedData[year][month]).forEach(n => {
-                  if(!allEmployees.includes(n)) allEmployees.push(n);
-              });
+              Object.keys(processedData[year][month]).forEach(n => { if(!allEmployees.includes(n)) allEmployees.push(n); });
           }
           allEmployees.sort();
 
-          const empSel = document.getElementById('filter-employee');
-          if(empSel.options.length <= 1) {
-              allEmployees.forEach(n => {
-                   const opt = document.createElement('option');
-                   opt.value = n; opt.text = n;
-                   empSel.appendChild(opt);
-              });
-          }
-
           allEmployees.forEach(name => {
-              if (filterEmp !== 'all' && name !== filterEmp) return;
               const empRow = { nama: name, days: [] };
-
               for(let d=1; d<=daysInMonth; d++) {
                   let dataHarian = { masuk: null, pulang: null };
                   if(processedData[year] && processedData[year][month] && processedData[year][month][name] && processedData[year][month][name][d]) {
                       dataHarian = processedData[year][month][name][d];
                   }
-
+                  
                   let mCode = dataHarian.masuk ? dataHarian.masuk.code : '';
                   let pCode = dataHarian.pulang ? dataHarian.pulang.code : '';
-
                   if(!mCode && !pCode) {
                       const checkDate = new Date(year, month-1, d);
                       const today = new Date();
-                      if(checkDate < today) mCode = 'a';
+                      if(checkDate < today && checkDate.getDay() !== 0) mCode = 'a'; 
                   }
 
-                  empRow.days.push({
-                      day: d,
-                      masuk: { ...dataHarian.masuk, code: mCode },
-                      pulang: { ...dataHarian.pulang, code: pCode }
-                  });
+                  empRow.days.push({ day: d, masuk: { ...dataHarian.masuk, code: mCode }, pulang: { ...dataHarian.pulang, code: pCode } });
               }
               gridData.push(empRow);
           });
 
-          renderHeatmap(gridData, daysInMonth);
-          calculateAndRenderStats(gridData, daysInMonth);
-          
-          // Sembunyikan tabel detail saat render ulang (ganti bulan/filter)
-          hideDetails();
+          currentGridData = gridData;
+          handleSearch(); 
+          calculateAndRenderMonthlyStats(gridData, daysInMonth);
+      }
+
+      function handleSearch() {
+          const search = document.getElementById('search-input').value.toLowerCase();
+          const statusFilter = document.getElementById('filter-status').value;
+          let filtered = [];
+
+          if (viewMode === 'yearly') {
+              filtered = currentYearlyData.filter(x => {
+                  const nameMatch = x.nama.toLowerCase().includes(search);
+                  let statusMatch = true;
+                  if (statusFilter === 'late') statusMatch = x.telat > 0;
+                  else if (statusFilter === 'early') statusMatch = x.pulangCepat > 0;
+                  else if (statusFilter === 'no_checkout') statusMatch = x.tidakPulang > 0;
+                  else if (statusFilter === 'alpha') statusMatch = x.alpa > 0;
+                  return nameMatch && statusMatch;
+              });
+              renderYearlyTable(filtered);
+          } else {
+              filtered = currentGridData.filter(emp => {
+                  const nameMatch = emp.nama.toLowerCase().includes(search);
+                  let statusMatch = true;
+                  if (statusFilter !== 'all') {
+                      statusMatch = emp.days.some(d => {
+                          const mCode = d.masuk.code;
+                          const pCode = d.pulang.code;
+                          const pTime = d.pulang.time;
+                          const mTime = d.masuk.time;
+
+                          if (statusFilter === 'late') {
+                              let isLate = ['t', 'tx'].includes(mCode);
+                              if (mTime) {
+                                  const mTimeVal = timeToMinutes(mTime);
+                                  const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
+                                  if (mTimeVal > limitVal) isLate = true;
+                              }
+                              return isLate;
+                          }
+                          if (statusFilter === 'early') {
+                              if (pTime) {
+                                  const pTimeVal = timeToMinutes(pTime);
+                                  const limitPVal = timeToMinutes(CONFIG.jamPulangNormal);
+                                  return pTimeVal < limitPVal;
+                              }
+                              return false;
+                          }
+                          if (statusFilter === 'no_checkout') return (['v','t','x','tx'].includes(mCode)) && (!pCode || pCode === 'a');
+                          if (statusFilter === 'alpha') return mCode === 'a'; 
+                          return false;
+                      });
+                  }
+                  return nameMatch && statusMatch;
+              });
+              
+              const daysInMonth = filtered.length > 0 ? filtered[0].days.length : 30;
+              renderHeatmap(filtered, daysInMonth);
+          }
       }
 
       function renderHeatmap(data, daysCount) {
           const container = document.getElementById('heatmap-container');
+          if(data.length === 0) { container.innerHTML = '<div class="p-8 text-center text-slate-400 italic">Tidak ada data.</div>'; return; }
+
           let html = '<table class="w-full border-collapse text-xs">';
-          html += '<thead><tr class="bg-gray-50 border-b border-gray-200">';
-          html += '<th class="p-3 text-left font-semibold text-gray-600 sticky left-0 bg-gray-50 z-20 shadow-sm min-w-[150px]">Nama Karyawan</th>';
-          for(let i=1; i<=daysCount; i++) html += `<th colspan="2" class="p-1 text-center font-medium text-gray-400 border-l border-gray-100">${i}</th>`;
+          html += '<thead><tr class="bg-slate-50 border-b border-slate-200">';
+          html += '<th class="p-3 text-left font-bold text-slate-600 sticky left-0 bg-slate-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] min-w-[150px]">Karyawan</th>';
+          for(let i=1; i<=daysCount; i++) html += `<th colspan="2" class="p-1 text-center font-semibold text-slate-400 border-l border-slate-100 min-w-[36px]">${i}</th>`;
           html += '</tr></thead><tbody>';
 
           data.forEach(emp => {
-              html += `<tr class="hover:bg-blue-50/30 border-b border-gray-100 transition-colors">`;
-              html += `<td class="p-3 font-medium text-gray-700 sticky left-0 bg-white z-10 shadow-sm whitespace-nowrap">${emp.nama}</td>`;
-              
+              html += `<tr class="hover:bg-blue-50/50 border-b border-slate-100 transition-colors group">`;
+              html += `<td class="p-3 font-semibold text-slate-700 sticky left-0 bg-white group-hover:bg-blue-50/50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] whitespace-nowrap">${emp.nama}</td>`;
               emp.days.forEach(d => {
-                  const m = d.masuk; 
-                  const p = d.pulang; 
-                  
-                  const cM = getStatusClass(m.code, 'Masuk');
+                  const m = d.masuk; const p = d.pulang; 
+                  // FIX: Pass Time for Status Coloring
+                  const cM = getStatusClass(m.code, 'Masuk', null, m.time);
                   const cP = getStatusClass(p.code, 'Pulang', m.code, p.time);
-                  
-                  html += `<td class="p-1 border-l border-gray-100"><div onclick="openModal('${emp.nama}', ${d.day}, '${m.code||''}', 'Masuk', '${m.time||''}', '${m.loc||''}', '${m.photo||''}', '${m.jarak||''}')" class="heatmap-cell mx-auto ${cM}" title="Masuk: ${m.code || '-'}">${m.code ? m.code.toUpperCase() : ''}</div></td>`;
-                  html += `<td class="p-1 border-r border-gray-100"><div onclick="openModal('${emp.nama}', ${d.day}, '${p.code||''}', 'Pulang', '${p.time||''}', '${p.loc||''}', '${p.photo||''}', '${p.jarak||''}')" class="heatmap-cell mx-auto ${cP}" title="Pulang: ${p.code || '-'}">${p.code === 'v' ? 'P' : (p.code ? p.code.toUpperCase() : '')}</div></td>`;
+                  html += `<td class="p-0.5 border-l border-slate-100/50"><div onclick="openModal('${emp.nama}', ${d.day}, '${m.code||''}', 'Masuk', '${m.time||''}', '${m.loc||''}', '${m.photo||''}', '${m.jarak||''}')" class="heatmap-cell mx-auto ${cM}" title="Masuk: ${m.code || '-'}">${m.code ? m.code.toUpperCase() : ''}</div></td>`;
+                  html += `<td class="p-0.5 border-r border-slate-100"><div onclick="openModal('${emp.nama}', ${d.day}, '${p.code||''}', 'Pulang', '${p.time||''}', '${p.loc||''}', '${p.photo||''}', '${p.jarak||''}')" class="heatmap-cell mx-auto ${cP}" title="Pulang: ${p.code || '-'}">${p.code === 'v' ? 'P' : (p.code ? p.code.toUpperCase() : '')}</div></td>`;
               });
               html += '</tr>';
           });
@@ -507,94 +730,204 @@
           container.innerHTML = html;
       }
 
-      function calculateAndRenderStats(data, daysCount) {
-          let s = { 
-            hadir: 0, telat: 0, izin: 0, alpa: 0, 
-            pulangCepat: 0, tidakPulang: 0 
-          };
-          
-          // [BARU] Reset detail setiap kali kalkulasi ulang
-          detailedStats = {
-              hadir: [], telat: [], izin: [], pulangCepat: [], tidakPulang: [], alpa: []
-          };
-          
+      function renderYearlyTable(data) {
+          const container = document.getElementById('heatmap-container');
+          if(data.length === 0) { container.innerHTML = '<div class="p-8 text-center text-slate-400 italic">Tidak ada data tahunan.</div>'; return; }
+
+          let html = '<table class="w-full text-sm text-left border-collapse">';
+          html += '<thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200"><tr>';
+          html += '<th class="px-6 py-3 sticky left-0 bg-slate-50 z-10">Peringkat</th>';
+          html += '<th class="px-6 py-3 sticky left-[80px] bg-slate-50 z-10">Nama Karyawan</th>';
+          html += '<th class="px-6 py-3 text-center text-green-600">Total Hadir</th>';
+          html += '<th class="px-6 py-3 text-center text-yellow-600">Total Telat</th>';
+          html += '<th class="px-6 py-3 text-center text-purple-600">Sakit/Izin</th>';
+          html += '<th class="px-6 py-3 text-center text-red-600">Alpa</th>';
+          html += '<th class="px-6 py-3 text-right font-bold text-blue-700">Skor Akhir</th>';
+          html += '</tr></thead><tbody>';
+
+          data.forEach((x, i) => {
+              html += `<tr class="bg-white border-b hover:bg-slate-50 transition">`;
+              html += `<td class="px-6 py-4 sticky left-0 bg-white font-mono text-slate-400">#${i+1}</td>`;
+              html += `<td class="px-6 py-4 sticky left-[80px] bg-white font-bold text-slate-800">${x.nama}</td>`;
+              html += `<td class="px-6 py-4 text-center font-bold text-green-600 bg-green-50/30">${x.hadir}</td>`;
+              html += `<td class="px-6 py-4 text-center font-medium text-yellow-600">${x.telat}</td>`;
+              html += `<td class="px-6 py-4 text-center text-purple-600">${x.izin}</td>`;
+              html += `<td class="px-6 py-4 text-center font-bold text-red-600 bg-red-50/30">${x.alpa}</td>`;
+              html += `<td class="px-6 py-4 text-right font-black text-blue-700 text-lg">${x.score}</td>`;
+              html += `</tr>`;
+          });
+          html += '</tbody></table>';
+          container.innerHTML = html;
+      }
+
+      function calculateAndRenderMonthlyStats(data, daysCount) {
+          let s = { hadir: 0, telat: 0, izin: 0, alpa: 0, pulangCepat: 0, tidakPulang: 0 };
           let scores = [];
+          let dailyTrend = Array(daysCount).fill(0).map(() => ({ hadir:0, telat:0 }));
+          
+          detailedStats = { hadir: [], telat: [], izin: [], pulangCepat: [], tidakPulang: [], alpa: [] };
+
+          const monthName = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex]?.text || '-';
 
           data.forEach(emp => {
               let score = 0;
-              emp.days.forEach((d) => {
-                  const c = d.masuk.code;
-                  const cP = d.pulang.code;
-                  const tP = d.pulang.time;
-                  const tM = d.masuk.time; // Jam masuk
+              emp.days.forEach((d, idx) => {
+                  const c = d.masuk.code; const cP = d.pulang.code; const tP = d.pulang.time; const tM = d.masuk.time;
 
-                  // 1. Stats Masuk & Detail
-                  if(['v','x'].includes(c)) {
-                      s.hadir++;
-                      detailedStats.hadir.push({name: emp.nama, date: d.day, desc: `Masuk: ${tM || '-'}`});
-                  }
-                  if(['t','tx'].includes(c)) {
-                      s.telat++;
-                      detailedStats.telat.push({name: emp.nama, date: d.day, desc: `Telat Masuk: ${tM || '-'}`});
-                  }
-                  if(['s','sx','i','ix'].includes(c)) {
-                      s.izin++;
-                      detailedStats.izin.push({name: emp.nama, date: d.day, desc: `Status: ${c.toUpperCase()}`});
-                  }
-                  if(c === 'a') {
-                      s.alpa++;
-                      detailedStats.alpa.push({name: emp.nama, date: d.day, desc: 'Tidak Ada Keterangan'});
+                  // FIX: Force On Time / Late Logic
+                  let isLate = ['t', 'tx'].includes(c);
+                  if (tM) {
+                      const mTimeVal = timeToMinutes(tM);
+                      const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
+                      if (mTimeVal <= limitVal) isLate = false;
+                      if (mTimeVal > limitVal) isLate = true;
                   }
 
-                  // 2. Stats Pulang (Logic Baru) & Detail
-                  if( (c === 'v' || c === 't' || c === 'x' || c === 'tx') && (!cP || cP === 'a') ) {
-                      s.tidakPulang++;
-                      detailedStats.tidakPulang.push({name: emp.nama, date: d.day, desc: 'Lupa/Tidak Absen Pulang'});
-                      score -= 2; 
+                  if(isLate) { 
+                      s.telat++; dailyTrend[idx].telat++; 
+                      detailedStats.telat.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Telat (${tM||'-'})`});
+                  } 
+                  else if(['v', 'x', 't', 'tx'].includes(c)) { 
+                      // Count as present if code is present AND not late (after fix)
+                      s.hadir++; dailyTrend[idx].hadir++; 
+                      detailedStats.hadir.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Masuk: ${tM||'-'}`});
                   }
 
-                  if(cP && tP && tP < CONFIG.jamPulangNormal) {
-                      s.pulangCepat++;
-                      detailedStats.pulangCepat.push({name: emp.nama, date: d.day, desc: `Pulang: ${tP}`});
-                      score -= 1;
+                  if(['s','sx','i','ix'].includes(c)) { 
+                      s.izin++; 
+                      detailedStats.izin.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Status: ${c.toUpperCase()}`});
+                  }
+                  if(c === 'a') { 
+                      s.alpa++; 
+                      detailedStats.alpa.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: 'Tanpa Keterangan'});
                   }
 
-                  // 3. Scoring General
-                  if(c === 'v') score += 10;
-                  else if(c === 'x') score += 8;
-                  else if(c === 't') score += 5;
-                  else if(c === 'a') score -= 5;
+                  if( (['v','t','x','tx'].includes(c)) && (!cP || cP === 'a') ) { 
+                      s.tidakPulang++; score -= 2; 
+                      detailedStats.tidakPulang.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: 'Lupa Absen Pulang'});
+                  }
+                  if (cP && tP) {
+                      const pTimeVal = timeToMinutes(tP);
+                      const limitPVal = timeToMinutes(CONFIG.jamPulangNormal);
+                      if (pTimeVal < limitPVal) {
+                          s.pulangCepat++; score -= 1; 
+                          detailedStats.pulangCepat.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Pulang: ${tP}`});
+                      }
+                  }
+
+                  if(c === 'v') score += 10; else if(c === 'x') score += 8; else if(c === 't') score += 5; else if(c === 'a') score -= 5;
               });
               scores.push({name: emp.nama, score: score});
           });
 
-          // Render Angka
           document.getElementById('stat-hadir').innerText = s.hadir;
+          document.getElementById('stat-total-hadir').innerText = s.hadir + s.telat;
+
           document.getElementById('stat-telat').innerText = s.telat;
           document.getElementById('stat-izin').innerText = s.izin;
           document.getElementById('stat-alpa').innerText = s.alpa;
-          document.getElementById('stat-pulang-cepat').innerText = s.pulangCepat;
-          document.getElementById('stat-tidak-pulang').innerText = s.tidakPulang;
-
-          renderCompositionChart(s);
-
-          scores.sort((a,b) => b.score - a.score);
-          const list = document.getElementById('top-performer-list');
-          list.innerHTML = scores.slice(0,5).map((x, i) => `
-              <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div class="flex items-center gap-3"><span class="w-6 h-6 flex items-center justify-center ${i<3?'bg-yellow-500':'bg-gray-400'} text-white rounded-full text-xs font-bold shadow-sm">${i+1}</span><span class="font-medium text-gray-700">${x.name}</span></div>
-                  <span class="text-sm font-bold text-blue-600">${x.score} Pts</span>
-              </div>
-          `).join('');
+          document.getElementById('stat-early').innerText = s.pulangCepat;
+          document.getElementById('stat-no-checkout').innerText = s.tidakPulang;
+          
+          const labels = Array.from({length: daysCount}, (_, i) => i + 1);
+          renderTrendChart(dailyTrend, daysCount, labels);
       }
       
-      // [BARU] Fungsi Tampilkan Detail
+      function renderTrendChart(trendData, length, labels) {
+          const ctx = document.getElementById('chartTrend').getContext('2d');
+          if(charts.trend) charts.trend.destroy();
+          
+          charts.trend = new Chart(ctx, {
+              type: 'line',
+              data: {
+                  labels: labels,
+                  datasets: [
+                      { label: 'Hadir', data: trendData.map(d => d.hadir), borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', tension: 0.3, fill: true, pointRadius: 3 },
+                      { label: 'Telat', data: trendData.map(d => d.telat), borderColor: '#eab308', backgroundColor: 'transparent', tension: 0.3, borderDash: [5, 5], pointRadius: 3 }
+                  ]
+              },
+              options: {
+                  responsive: true, maintainAspectRatio: false,
+                  plugins: { legend: { display: true, position: 'top', align: 'end', labels: { boxWidth: 10, usePointStyle: true, font: {size: 10} } } },
+                  scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } }
+              }
+          });
+      }
+
+      function getStatusClass(c, type, pairCode, time) {
+          if(!c) {
+              if(type === 'Pulang' && pairCode && !['a','h'].includes(pairCode) && !c) return 'status-lupa'; 
+              return 'status-nodata';
+          }
+          c = c.toLowerCase();
+          
+          if(type === 'Masuk') {
+              if (time) {
+                  const mTimeVal = timeToMinutes(time);
+                  const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
+                  // FIX: Force Green if time exists and <= 08:00
+                  if (mTimeVal <= limitVal && ['t','tx'].includes(c)) return 'status-hadir';
+                  // FIX: Force Yellow if time exists and > 08:00
+                  if (mTimeVal > limitVal && ['v','x'].includes(c)) return 'status-telat';
+              }
+          }
+
+          if(type === 'Pulang') {
+              if(time) {
+                  const pTimeVal = timeToMinutes(time);
+                  const limitPVal = timeToMinutes(CONFIG.jamPulangNormal);
+                  if (pTimeVal < limitPVal) return 'status-pulang-cepat';
+              }
+              if(c === 'v') return 'status-pulang';
+              if(c === 'a') return 'status-tidak-absen';
+              return 'status-nodata';
+          }
+          if(c === 'v') return 'status-hadir'; if(c === 'x') return 'status-hadir-salah-lokasi';
+          if(c === 't') return 'status-telat'; if(c === 'tx') return 'status-telat-salah-lokasi';
+          if(c.startsWith('s')) return 'status-sakit'; if(c.startsWith('i')) return 'status-izin';
+          if(c === 'a') return 'status-tidak-absen'; if(c === 'h') return 'status-libur';
+          return 'status-nodata';
+      }
+
+      function exportCSV() {
+          const year = document.getElementById('filter-year').value;
+          let csvContent = "data:text/csv;charset=utf-8,";
+          
+          if (viewMode === 'yearly') {
+              csvContent += `RESUME TAHUNAN ABSENSI ${year}\n\n`;
+              csvContent += "Peringkat,Nama,Total Hadir,Total Telat,Total Izin,Total Alpa,Skor Akhir\n";
+              currentYearlyData.forEach((x, i) => {
+                  csvContent += `${i+1},"${x.nama}",${x.hadir},${x.telat},${x.izin},${x.alpa},${x.score}\n`;
+              });
+          } else {
+              if(currentGridData.length === 0) return alert("Tidak ada data untuk diekspor");
+              const month = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex].text;
+              csvContent += `Laporan Absensi Periode ${month} ${year}\n\n`;
+              csvContent += "Nama,Tanggal,Jam Masuk,Status Masuk,Jam Pulang,Status Pulang\n";
+              
+              currentGridData.forEach(emp => {
+                  emp.days.forEach(d => {
+                     if(d.masuk.code || d.pulang.code) {
+                         const mC = d.masuk.code || '-'; const pC = d.pulang.code || '-';
+                         csvContent += `"${emp.nama}",${d.day} ${month},${d.masuk.time||'-'},${mC},${d.pulang.time||'-'},${pC}\n`;
+                     }
+                  });
+              });
+          }
+          const encodedUri = encodeURI(csvContent);
+          const link = document.createElement("a");
+          link.setAttribute("href", encodedUri);
+          link.setAttribute("download", `Absensi_${viewMode}_${year}.csv`);
+          document.body.appendChild(link);
+          link.click();
+      }
+
       window.showDetails = function(category) {
           const container = document.getElementById('detail-list-container');
           const tbody = document.getElementById('detail-list-body');
           const title = document.getElementById('detail-list-title');
+          const thDate = document.getElementById('th-date');
           
-          // Reset style active card
           document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('active-card'));
           
           let dataList = detailedStats[category] || [];
@@ -610,31 +943,33 @@
           }
           
           title.textContent = `Detail: ${categoryName} (${dataList.length})`;
+          if (viewMode === 'yearly') thDate.textContent = "Total Kejadian";
+          else thDate.textContent = "Tanggal / Jam";
+
           tbody.innerHTML = '';
           
           if(dataList.length === 0) {
               tbody.innerHTML = '<tr><td colspan="3" class="px-6 py-4 text-center text-gray-500 italic">Tidak ada data untuk kategori ini.</td></tr>';
           } else {
-              // Sort berdasarkan tanggal
-              dataList.sort((a, b) => a.date - b.date);
-              
-              const monthName = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex].text;
-              const year = document.getElementById('filter-year').value;
+              if(viewMode === 'monthly') {
+                  dataList.sort((a, b) => parseInt(a.date) - parseInt(b.date));
+              } else {
+                  dataList.sort((a, b) => a.name.localeCompare(b.name));
+              }
 
               dataList.forEach(item => {
                   const tr = document.createElement('tr');
                   tr.className = 'bg-white border-b hover:bg-gray-50';
                   tr.innerHTML = `
                       <td class="px-6 py-3 font-medium text-gray-900">${item.name}</td>
-                      <td class="px-6 py-3">${item.date} ${monthName} ${year}</td>
-                      <td class="px-6 py-3 text-gray-600">${item.desc}</td>
+                      <td class="px-6 py-3 text-slate-600 font-mono text-xs">${item.date}</td>
+                      <td class="px-6 py-3 text-xs text-gray-500">${item.desc}</td>
                   `;
                   tbody.appendChild(tr);
               });
           }
           
           container.classList.remove('hidden');
-          // Highlight card clicked (optional logic could be added here to target specific card)
       };
       
       window.hideDetails = function() {
@@ -642,106 +977,39 @@
           document.querySelectorAll('.stat-card').forEach(el => el.classList.remove('active-card'));
       };
 
-      function getStatusClass(c, type, pairCode, time) {
-          if(!c) {
-              if(type === 'Pulang' && pairCode && pairCode !== 'a' && pairCode !== 'h' && !c) return 'status-lupa'; 
-              return 'status-nodata';
-          }
-          c = c.toLowerCase();
+      window.openModal = function(n, d, c, t, jam, loc, foto, jarak) {
+          if(viewMode === 'yearly') return; 
+          const m = document.getElementById('detailModal');
+          document.getElementById('modal-nama').innerText = n;
+          document.getElementById('modal-tanggal').innerText = `Tanggal ${d}`;
+          document.getElementById('modal-tipe').innerText = t;
+          document.getElementById('modal-status-badge').innerText = c ? c.toUpperCase() : 'N/A';
+          document.getElementById('modal-jam').innerText = (jam && jam !== 'null') ? jam.substring(0,5) : '--:--';
+          document.getElementById('modal-jarak').innerText = (jarak && jarak !== 'null') ? `${jarak} km` : '-';
           
-          if(type === 'Pulang') {
-              if(time && time < CONFIG.jamPulangNormal) return 'status-pulang-cepat';
-              if(c === 'v') return 'status-pulang';
-              if(c === 'a') return 'status-tidak-absen';
-              return 'status-nodata';
-          }
-          
-          if(c === 'v') return 'status-hadir';
-          if(c === 'x') return 'status-hadir-salah-lokasi';
-          if(c === 't') return 'status-telat';
-          if(c === 'tx') return 'status-telat-salah-lokasi';
-          if(c.startsWith('s')) return 'status-sakit';
-          if(c.startsWith('i')) return 'status-izin';
-          if(c === 'a') return 'status-tidak-absen';
-          if(c === 'h') return 'status-libur';
-          return 'status-nodata';
-      }
+          selectedEmployeeName = n;
+          document.getElementById('ai-personal-result').classList.add('hidden');
+          document.getElementById('ai-personal-result').innerHTML = '';
+          document.getElementById('ai-personal-loading').classList.add('hidden');
+          document.getElementById('btn-personal-ai').classList.remove('hidden');
 
-      function renderCompositionChart(stats) {
-          const ctx = document.getElementById('chartComposition').getContext('2d');
-          if(charts.composition) charts.composition.destroy();
-
-          charts.composition = new Chart(ctx, {
-              type: 'doughnut',
-              data: {
-                  labels: ['Hadir', 'Telat', 'Plg Cepat', 'Tdk Absen Plg', 'Sakit/Izin', 'Alpa'],
-                  datasets: [{
-                      data: [stats.hadir, stats.telat, stats.pulangCepat, stats.tidakPulang, stats.izin, stats.alpa],
-                      backgroundColor: [
-                          '#10b981', // Hadir
-                          '#eab308', // Telat
-                          '#f97316', // Plg Cepat
-                          '#93c5fd', // Lupa Plg
-                          '#ef4444', // Sakit
-                          '#6b7280'  // Alpa
-                      ],
-                      borderWidth: 0
-                  }]
-              },
-              options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                      legend: { position: 'right', labels: { boxWidth: 12, padding: 10, font: {size: 10} } }
-                  },
-                  cutout: '60%'
-              }
-          });
-      }
-
-      // Modal Functions (Sama seperti sebelumnya)
-      window.openModal = function(nama, hari, code, type, jam, loc, foto, jarak) {
-          const modal = document.getElementById('detailModal');
-          const monthName = document.getElementById('filter-month').options[document.getElementById('filter-month').selectedIndex].text;
-          const year = document.getElementById('filter-year').value;
-          document.getElementById('modal-nama').innerText = nama;
-          document.getElementById('modal-avatar').innerText = nama.charAt(0).toUpperCase();
-          document.getElementById('modal-tanggal').innerText = `${hari} ${monthName} ${year}`;
-          document.getElementById('modal-tipe').innerText = type.toUpperCase();
-          document.getElementById('modal-status-badge').innerText = code ? `Kode: ${code.toUpperCase()}` : 'Tidak Ada Data';
-          const elJam = document.getElementById('modal-jam');
-          const elJarak = document.getElementById('modal-jarak');
           const elMaps = document.getElementById('modal-maps-link');
-          const elFotoContainer = document.getElementById('modal-foto-container');
-          const elFotoError = document.getElementById('modal-foto-error');
-          const elImg = document.getElementById('modal-foto');
-          const elNoData = document.getElementById('modal-no-data');
-
-          const isValid = (val) => val && val !== 'null' && val !== 'undefined';
-          const hasData = isValid(jam) || isValid(loc);
-
-          if(hasData) {
-              elNoData.classList.add('hidden');
-              elJam.innerText = isValid(jam) ? jam.substring(0,5) : '--:--';
-              elJarak.innerText = isValid(jarak) ? `${jarak} km` : '-';
-              if(isValid(loc)) {
-                  const cleanLoc = loc.replace(/["]/g, '');
-                  elMaps.href = `https://www.google.com/maps/search/?api=1&query=${cleanLoc}`;
-                  elMaps.classList.remove('hidden');
-              } else { elMaps.classList.add('hidden'); }
-              if(isValid(foto)) {
-                  if (foto.startsWith('http')) { elFotoContainer.classList.remove('hidden'); elFotoError.classList.add('hidden'); elImg.src = foto; }
-                  else if (foto.includes('/') && !foto.startsWith('http')) { elFotoContainer.classList.add('hidden'); elFotoError.classList.remove('hidden'); }
-                  else { elFotoContainer.classList.remove('hidden'); elFotoError.classList.add('hidden'); elImg.src = `https://drive.google.com/thumbnail?id=${foto}`; }
-              } else { elFotoContainer.classList.add('hidden'); elFotoError.classList.add('hidden'); }
+          if(loc && loc !== 'null') { elMaps.href = `https://www.google.com/maps/search/?api=1&query=${loc.replace(/["]/g,'')}`; elMaps.classList.remove('hidden'); }
+          else elMaps.classList.add('hidden');
+          
+          const elFoto = document.getElementById('modal-foto-container'); const elErr = document.getElementById('modal-foto-error'); const elNo = document.getElementById('modal-no-data'); const img = document.getElementById('modal-foto');
+          
+          if(foto && foto !== 'null' && foto !== 'undefined') {
+             elNo.classList.add('hidden');
+             if(foto.startsWith('http')) { elFoto.classList.remove('hidden'); elErr.classList.add('hidden'); img.src = foto; }
+             else { elFoto.classList.add('hidden'); elErr.classList.remove('hidden'); }
           } else {
-              elJam.innerText = '--:--'; elJarak.innerText = '-';
-              elMaps.classList.add('hidden'); elFotoContainer.classList.add('hidden'); elFotoError.classList.add('hidden');
-              elNoData.classList.remove('hidden');
+             elFoto.classList.add('hidden'); elErr.classList.add('hidden'); elNo.classList.remove('hidden');
           }
-          modal.classList.remove('hidden');
+          m.classList.remove('hidden');
       };
-      window.closeModal = function() { document.getElementById('detailModal').classList.add('hidden'); };
+      window.closeModal = () => document.getElementById('detailModal').classList.add('hidden');
+      
       document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
