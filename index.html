@@ -6,6 +6,8 @@
   <title>Dashboard Absensi Pro - Analytics & Report</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Markdown Parser untuk output AI -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
       body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
@@ -54,6 +56,10 @@
       .heatmap-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
       .heatmap-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
       .heatmap-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+      /* Progress Bar for Compliance */
+      .progress-bg { background-color: #e2e8f0; border-radius: 999px; height: 6px; width: 100%; overflow: hidden; }
+      .progress-fill { height: 100%; border-radius: 999px; transition: width 1s ease-in-out; }
 
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
@@ -125,6 +131,7 @@
                 </div>
                 <div class="text-green-600 bg-green-50 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
             </div>
+            <!-- Menampilkan Total Kehadiran (Hadir + Telat) -->
             <div class="mt-2 pt-2 border-t border-slate-50 flex justify-between items-center">
                 <span class="text-[10px] text-slate-500 font-medium">Total Masuk: <b id="stat-total-hadir" class="text-slate-700">0</b></span>
                 <span class="text-[10px] text-green-600 opacity-0 group-hover:opacity-100 transition-opacity">Detail &rarr;</span>
@@ -182,7 +189,7 @@
         </div>
       </div>
 
-      <!-- Detail Table -->
+      <!-- Detail Table (Restored & Dynamic) -->
       <div id="detail-list-container" class="hidden bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden ring-1 ring-slate-900/5 animate-fade-in-down">
          <div class="bg-slate-50/50 px-6 py-4 border-b border-slate-100 flex justify-between items-center backdrop-blur-sm">
              <h3 class="font-bold text-slate-800 flex items-center gap-2">
@@ -223,7 +230,7 @@
                   </div>
               </div>
 
-              <!-- [BARU] Sorotan Karyawan -->
+              <!-- Sorotan Karyawan -->
               <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                   <div class="flex justify-between items-center mb-4">
                       <h3 class="font-bold text-slate-700 text-sm">🔍 Sorotan Karyawan</h3>
@@ -352,6 +359,21 @@
           jamPulangNormal: '17:00:00'
       };
       
+      // DATA HARI LIBUR NASIONAL INDONESIA (Termasuk Cuti Bersama)
+      // Format: "D-M" (Tanggal-Bulan)
+      const HOLIDAYS = {
+          2024: [
+              "1-1", "8-2", "9-2", "10-2", "11-3", "12-3", "29-3", "31-3", 
+              "8-4", "9-4", "10-4", "11-4", "12-4", "15-4", "1-5", "9-5", "10-5", 
+              "23-5", "24-5", "1-6", "17-6", "18-6", "7-7", "17-8", "16-9", "25-12", "26-12"
+          ],
+          2025: [
+              "1-1", "27-1", "28-1", "29-1", "28-3", "29-3", "31-3", "1-4", "2-4", 
+              "3-4", "4-4", "7-4", "18-4", "20-4", "1-5", "12-5", "13-5", "29-5", 
+              "30-5", "1-6", "6-6", "9-6", "27-6", "17-8", "5-9", "25-12", "26-12"
+          ]
+      };
+
       let rawData = { masterEmp: [], historyMasuk: [], historyPulang: [] };
       let processedData = {};
       let availablePeriods = [];
@@ -516,11 +538,36 @@
           return hours * 60 + minutes;
       }
 
+      // [BARU] Fungsi Menghitung Hari Kerja Efektif (Sen-Jum, Exclude Libur)
+      function getWorkingDaysCount(year) {
+          let count = 0;
+          const startDate = new Date(year, 0, 1);
+          const endDate = new Date(year, 11, 31);
+          const holidaySet = new Set(HOLIDAYS[year] || []);
+
+          // Batasi endDate ke hari ini jika tahun berjalan
+          const today = new Date();
+          const limitDate = (year === today.getFullYear()) ? today : endDate;
+
+          for (let d = new Date(startDate); d <= limitDate; d.setDate(d.getDate() + 1)) {
+              const day = d.getDay();
+              const dateStr = `${d.getDate()}-${d.getMonth()+1}`;
+              
+              // 0 = Minggu, 6 = Sabtu. Hari Kerja = 1-5 (Senin-Jumat)
+              if (day !== 0 && day !== 6 && !holidaySet.has(dateStr)) {
+                  count++;
+              }
+          }
+          return count;
+      }
+
       function renderYearlyDashboard(year) {
           const badge = document.getElementById('current-period-badge');
           badge.textContent = `TAHUN ${year}`;
           badge.classList.remove('hidden');
           
+          const workingDays = getWorkingDaysCount(year); // Hitung Hari Kerja Efektif
+
           let summary = {}; 
           const allEmployees = [...new Set(rawData.masterEmp)];
           allEmployees.forEach(n => { summary[n] = { nama: n, hadir: 0, telat: 0, izin: 0, alpa: 0, pulangCepat: 0, tidakPulang: 0, score: 0 }; });
@@ -582,7 +629,13 @@
               });
           }
 
-          currentYearlyData = Object.values(summary).sort((a,b) => b.score - a.score);
+          // Hitung Compliance Percentage
+          currentYearlyData = Object.values(summary).map(s => {
+              const totalPresence = s.hadir + s.telat;
+              // Avoid division by zero
+              const compliance = workingDays > 0 ? Math.round((totalPresence / workingDays) * 100) : 0;
+              return { ...s, compliance, totalPresence };
+          }).sort((a,b) => b.score - a.score);
           
           let totalS = { hadir: 0, telat: 0, izin: 0, alpa: 0, pulangCepat: 0, tidakPulang: 0 };
           currentYearlyData.forEach(x => {
@@ -599,6 +652,7 @@
           
           document.getElementById('stat-hadir').innerText = totalS.hadir;
           document.getElementById('stat-total-hadir').innerText = totalS.hadir + totalS.telat;
+          
           document.getElementById('stat-telat').innerText = totalS.telat;
           document.getElementById('stat-izin').innerText = totalS.izin;
           document.getElementById('stat-alpa').innerText = totalS.alpa;
@@ -726,6 +780,7 @@
               html += `<td class="p-3 font-semibold text-slate-700 sticky left-0 bg-white group-hover:bg-blue-50/50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] whitespace-nowrap">${emp.nama}</td>`;
               emp.days.forEach(d => {
                   const m = d.masuk; const p = d.pulang; 
+                  // FIX: Pass Time for Status Coloring
                   const cM = getStatusClass(m.code, 'Masuk', null, m.time);
                   const cP = getStatusClass(p.code, 'Pulang', m.code, p.time);
                   html += `<td class="p-0.5 border-l border-slate-100/50"><div onclick="openModal('${emp.nama}', ${d.day}, '${m.code||''}', 'Masuk', '${m.time||''}', '${m.loc||''}', '${m.photo||''}', '${m.jarak||''}')" class="heatmap-cell mx-auto ${cM}" title="Masuk: ${m.code || '-'}">${m.code ? m.code.toUpperCase() : ''}</div></td>`;
@@ -745,22 +800,43 @@
           html += '<thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200"><tr>';
           html += '<th class="px-6 py-3 sticky left-0 bg-slate-50 z-10">Peringkat</th>';
           html += '<th class="px-6 py-3 sticky left-[80px] bg-slate-50 z-10">Nama Karyawan</th>';
-          html += '<th class="px-6 py-3 text-center text-green-600">Total Hadir</th>';
+          html += '<th class="px-6 py-3 text-center text-green-600">Total Hadir (All)</th>'; // Label diperjelas
           html += '<th class="px-6 py-3 text-center text-yellow-600">Total Telat</th>';
           html += '<th class="px-6 py-3 text-center text-purple-600">Sakit/Izin</th>';
           html += '<th class="px-6 py-3 text-center text-red-600">Alpa</th>';
-          html += '<th class="px-6 py-3 text-right font-bold text-blue-700">Skor Akhir</th>';
+          html += '<th class="px-6 py-3 text-center text-blue-700 font-bold">% Kepatuhan</th>';
+          html += '<th class="px-6 py-3 text-right font-bold text-blue-900">Skor Akhir</th>';
           html += '</tr></thead><tbody>';
 
           data.forEach((x, i) => {
+              // Colorize Compliance
+              let compColor = 'bg-slate-100 text-slate-600';
+              if(x.compliance >= 95) compColor = 'bg-green-100 text-green-700';
+              else if(x.compliance >= 80) compColor = 'bg-yellow-100 text-yellow-700';
+              else compColor = 'bg-red-100 text-red-700';
+
+              // [UPDATE] Total Hadir sekarang adalah akumulasi (Tepat + Telat)
+              const totalKehadiran = x.hadir + x.telat;
+
               html += `<tr class="bg-white border-b hover:bg-slate-50 transition">`;
               html += `<td class="px-6 py-4 sticky left-0 bg-white font-mono text-slate-400">#${i+1}</td>`;
               html += `<td class="px-6 py-4 sticky left-[80px] bg-white font-bold text-slate-800">${x.nama}</td>`;
-              html += `<td class="px-6 py-4 text-center font-bold text-green-600 bg-green-50/30">${x.hadir}</td>`;
+              html += `<td class="px-6 py-4 text-center font-bold text-green-600 bg-green-50/30">${totalKehadiran}</td>`; // Updated value
               html += `<td class="px-6 py-4 text-center font-medium text-yellow-600">${x.telat}</td>`;
               html += `<td class="px-6 py-4 text-center text-purple-600">${x.izin}</td>`;
               html += `<td class="px-6 py-4 text-center font-bold text-red-600 bg-red-50/30">${x.alpa}</td>`;
-              html += `<td class="px-6 py-4 text-right font-black text-blue-700 text-lg">${x.score}</td>`;
+              
+              // Progress Bar Visual for Compliance
+              html += `<td class="px-6 py-4">
+                  <div class="flex items-center gap-2">
+                      <span class="text-xs font-bold w-8 text-right">${x.compliance}%</span>
+                      <div class="progress-bg w-24">
+                          <div class="progress-fill ${compColor.split(' ')[0].replace('100','500')}" style="width: ${x.compliance}%"></div>
+                      </div>
+                  </div>
+              </td>`;
+              
+              html += `<td class="px-6 py-4 text-right font-black text-blue-900 text-lg">${x.score}</td>`;
               html += `</tr>`;
           });
           html += '</tbody></table>';
@@ -781,6 +857,7 @@
               emp.days.forEach((d, idx) => {
                   const c = d.masuk.code; const cP = d.pulang.code; const tP = d.pulang.time; const tM = d.masuk.time;
 
+                  // FIX: Force On Time / Late Logic
                   let isLate = ['t', 'tx'].includes(c);
                   if (tM) {
                       const mTimeVal = timeToMinutes(tM);
@@ -794,6 +871,7 @@
                       detailedStats.telat.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Telat (${tM||'-'})`});
                   } 
                   else if(['v', 'x', 't', 'tx'].includes(c)) { 
+                      // Count as present if code is present AND not late (after fix)
                       s.hadir++; dailyTrend[idx].hadir++; 
                       detailedStats.hadir.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Masuk: ${tM||'-'}`});
                   }
@@ -870,7 +948,9 @@
               if (time) {
                   const mTimeVal = timeToMinutes(time);
                   const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
+                  // FIX: Force Green if time exists and <= 08:00
                   if (mTimeVal <= limitVal && ['t','tx'].includes(c)) return 'status-hadir';
+                  // FIX: Force Yellow if time exists and > 08:00
                   if (mTimeVal > limitVal && ['v','x'].includes(c)) return 'status-telat';
               }
           }
@@ -1012,15 +1092,13 @@
           let candidates = [];
           
           if (mode === 'yearly') {
-              // Data tahunan sudah memiliki total count di dalamnya
               candidates = data.map(x => ({
                   nama: x.nama,
                   telat: x.telat,
                   pulangCepat: x.pulangCepat,
-                  ghost: x.alpa + x.tidakPulang // Gabungan Alpha + Tidak Absen Pulang
+                  ghost: x.alpa + x.tidakPulang 
               }));
           } else {
-              // Data bulanan perlu dihitung ulang per karyawan
               candidates = data.map(emp => {
                   let stats = { nama: emp.nama, telat: 0, pulangCepat: 0, ghost: 0 };
                   emp.days.forEach(d => {
@@ -1029,7 +1107,6 @@
                       const pTime = d.pulang.time;
                       const cP = d.pulang.code;
                       
-                      // Hitung Telat
                       let isLate = ['t', 'tx'].includes(c);
                       if (mTime) {
                            const mTimeVal = timeToMinutes(mTime);
@@ -1038,15 +1115,12 @@
                       }
                       if (isLate) stats.telat++;
                       
-                      // Hitung Pulang Cepat
                       if (cP && pTime) {
                           const pTimeVal = timeToMinutes(pTime);
                           const limitPVal = timeToMinutes(CONFIG.jamPulangNormal);
                           if (pTimeVal < limitPVal) stats.pulangCepat++;
                       }
                       
-                      // Hitung Ghost (Alpha + No Checkout)
-                      // Logic: Masuk tapi tdk pulang OR Alpha Murni
                       let isNoCheckout = (['v','t','x','tx'].includes(c)) && (!cP || cP === 'a');
                       if (c === 'a' || isNoCheckout) {
                           stats.ghost++;
@@ -1056,10 +1130,8 @@
               });
           }
 
-          // Cari Juara
           if (!candidates.length) return;
 
-          // Helper find max
           const getChampion = (prop) => {
               let maxVal = -1;
               let champ = { nama: '-', val: 0 };
@@ -1070,7 +1142,6 @@
                       champ = { nama: c.nama, val: c[prop] };
                   }
               });
-              // Hanya tampilkan jika count > 0
               return maxVal > 0 ? champ : { nama: '-', val: 0 };
           };
 
@@ -1078,7 +1149,6 @@
           const earlyLeaver = getChampion('pulangCepat');
           const theGhost = getChampion('ghost');
 
-          // Render HTML
           const container = document.getElementById('special-categories-list');
           let html = '';
 
