@@ -51,17 +51,32 @@
       .stat-card:active { transform: translateY(0); }
       .active-card { ring: 2px solid #3b82f6; background-color: #f0f9ff; }
       
-      /* Custom Scrollbar for Heatmap */
+      /* Progress Bar for Compliance */
+      .progress-bg { background-color: #e2e8f0; border-radius: 999px; height: 6px; width: 100%; overflow: hidden; }
+      .progress-fill { height: 100%; border-radius: 999px; transition: width 1s ease-in-out; }
+
+      /* AI Report Styling */
+      .prose h3 { font-size: 1.1rem; font-weight: 700; margin-top: 1rem; margin-bottom: 0.5rem; color: #1e293b; }
+      .prose ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+      .prose p { margin-bottom: 0.75rem; line-height: 1.6; color: #334155; }
+      .prose strong { color: #0f172a; font-weight: 600; }
+
+      /* Custom Scrollbar */
       .heatmap-scroll::-webkit-scrollbar { height: 8px; }
       .heatmap-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
       .heatmap-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
       .heatmap-scroll::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-      /* Progress Bar for Compliance */
-      .progress-bg { background-color: #e2e8f0; border-radius: 999px; height: 6px; width: 100%; overflow: hidden; }
-      .progress-fill { height: 100%; border-radius: 999px; transition: width 1s ease-in-out; }
-
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      @keyframes gradient-xy {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+      }
+      .animate-gradient {
+          background-size: 200% 200%;
+          animation: gradient-xy 3s ease infinite;
+      }
   </style>
 </head>
 <body class="text-slate-800">
@@ -230,7 +245,7 @@
                   </div>
               </div>
 
-              <!-- Sorotan Karyawan -->
+              <!-- [BARU] Sorotan Karyawan -->
               <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                   <div class="flex justify-between items-center mb-4">
                       <h3 class="font-bold text-slate-700 text-sm">🔍 Sorotan Karyawan</h3>
@@ -293,7 +308,7 @@
     </div>
   </div>
 
-  <!-- Modal Detail Employee -->
+  <!-- Modal Detail Employee (Tanpa Fitur AI) -->
   <div id="detailModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
     <div class="fixed inset-0 z-10 overflow-y-auto">
@@ -360,7 +375,6 @@
       };
       
       // DATA HARI LIBUR NASIONAL INDONESIA (Termasuk Cuti Bersama)
-      // Format: "D-M" (Tanggal-Bulan)
       const HOLIDAYS = {
           2024: [
               "1-1", "8-2", "9-2", "10-2", "11-3", "12-3", "29-3", "31-3", 
@@ -538,14 +552,13 @@
           return hours * 60 + minutes;
       }
 
-      // [BARU] Fungsi Menghitung Hari Kerja Efektif (Sen-Jum, Exclude Libur)
+      // Fungsi Menghitung Hari Kerja Efektif
       function getWorkingDaysCount(year) {
           let count = 0;
           const startDate = new Date(year, 0, 1);
           const endDate = new Date(year, 11, 31);
           const holidaySet = new Set(HOLIDAYS[year] || []);
 
-          // Batasi endDate ke hari ini jika tahun berjalan
           const today = new Date();
           const limitDate = (year === today.getFullYear()) ? today : endDate;
 
@@ -553,7 +566,6 @@
               const day = d.getDay();
               const dateStr = `${d.getDate()}-${d.getMonth()+1}`;
               
-              // 0 = Minggu, 6 = Sabtu. Hari Kerja = 1-5 (Senin-Jumat)
               if (day !== 0 && day !== 6 && !holidaySet.has(dateStr)) {
                   count++;
               }
@@ -566,7 +578,7 @@
           badge.textContent = `TAHUN ${year}`;
           badge.classList.remove('hidden');
           
-          const workingDays = getWorkingDaysCount(year); // Hitung Hari Kerja Efektif
+          const workingDays = getWorkingDaysCount(year); 
 
           let summary = {}; 
           const allEmployees = [...new Set(rawData.masterEmp)];
@@ -632,7 +644,6 @@
           // Hitung Compliance Percentage
           currentYearlyData = Object.values(summary).map(s => {
               const totalPresence = s.hadir + s.telat;
-              // Avoid division by zero
               const compliance = workingDays > 0 ? Math.round((totalPresence / workingDays) * 100) : 0;
               return { ...s, compliance, totalPresence };
           }).sort((a,b) => b.score - a.score);
@@ -660,7 +671,7 @@
           document.getElementById('stat-no-checkout').innerText = totalS.tidakPulang;
 
           renderTrendChart(monthlyTrend, 12, ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des']);
-          renderYearlyTable(currentYearlyData);
+          renderYearlyTable(currentYearlyData, workingDays);
           renderSpecialCategories(currentYearlyData, 'yearly');
       }
 
@@ -780,7 +791,6 @@
               html += `<td class="p-3 font-semibold text-slate-700 sticky left-0 bg-white group-hover:bg-blue-50/50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] whitespace-nowrap">${emp.nama}</td>`;
               emp.days.forEach(d => {
                   const m = d.masuk; const p = d.pulang; 
-                  // FIX: Pass Time for Status Coloring
                   const cM = getStatusClass(m.code, 'Masuk', null, m.time);
                   const cP = getStatusClass(p.code, 'Pulang', m.code, p.time);
                   html += `<td class="p-0.5 border-l border-slate-100/50"><div onclick="openModal('${emp.nama}', ${d.day}, '${m.code||''}', 'Masuk', '${m.time||''}', '${m.loc||''}', '${m.photo||''}', '${m.jarak||''}')" class="heatmap-cell mx-auto ${cM}" title="Masuk: ${m.code || '-'}">${m.code ? m.code.toUpperCase() : ''}</div></td>`;
@@ -792,7 +802,7 @@
           container.innerHTML = html;
       }
 
-      function renderYearlyTable(data) {
+      function renderYearlyTable(data, totalWorkingDays = 0) {
           const container = document.getElementById('heatmap-container');
           if(data.length === 0) { container.innerHTML = '<div class="p-8 text-center text-slate-400 italic">Tidak ada data tahunan.</div>'; return; }
 
@@ -800,7 +810,7 @@
           html += '<thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b border-slate-200"><tr>';
           html += '<th class="px-6 py-3 sticky left-0 bg-slate-50 z-10">Peringkat</th>';
           html += '<th class="px-6 py-3 sticky left-[80px] bg-slate-50 z-10">Nama Karyawan</th>';
-          html += '<th class="px-6 py-3 text-center text-green-600">Total Hadir (All)</th>'; // Label diperjelas
+          html += `<th class="px-6 py-3 text-center text-green-600">Total Hadir <br><span class="text-[10px] text-slate-400">(Target: ${totalWorkingDays} Hari)</span></th>`; 
           html += '<th class="px-6 py-3 text-center text-yellow-600">Total Telat</th>';
           html += '<th class="px-6 py-3 text-center text-purple-600">Sakit/Izin</th>';
           html += '<th class="px-6 py-3 text-center text-red-600">Alpa</th>';
@@ -809,24 +819,21 @@
           html += '</tr></thead><tbody>';
 
           data.forEach((x, i) => {
-              // Colorize Compliance
               let compColor = 'bg-slate-100 text-slate-600';
               if(x.compliance >= 95) compColor = 'bg-green-100 text-green-700';
               else if(x.compliance >= 80) compColor = 'bg-yellow-100 text-yellow-700';
               else compColor = 'bg-red-100 text-red-700';
 
-              // [UPDATE] Total Hadir sekarang adalah akumulasi (Tepat + Telat)
               const totalKehadiran = x.hadir + x.telat;
 
               html += `<tr class="bg-white border-b hover:bg-slate-50 transition">`;
               html += `<td class="px-6 py-4 sticky left-0 bg-white font-mono text-slate-400">#${i+1}</td>`;
               html += `<td class="px-6 py-4 sticky left-[80px] bg-white font-bold text-slate-800">${x.nama}</td>`;
-              html += `<td class="px-6 py-4 text-center font-bold text-green-600 bg-green-50/30">${totalKehadiran}</td>`; // Updated value
+              html += `<td class="px-6 py-4 text-center font-bold text-green-600 bg-green-50/30">${totalKehadiran}</td>`; 
               html += `<td class="px-6 py-4 text-center font-medium text-yellow-600">${x.telat}</td>`;
               html += `<td class="px-6 py-4 text-center text-purple-600">${x.izin}</td>`;
               html += `<td class="px-6 py-4 text-center font-bold text-red-600 bg-red-50/30">${x.alpa}</td>`;
               
-              // Progress Bar Visual for Compliance
               html += `<td class="px-6 py-4">
                   <div class="flex items-center gap-2">
                       <span class="text-xs font-bold w-8 text-right">${x.compliance}%</span>
@@ -857,7 +864,6 @@
               emp.days.forEach((d, idx) => {
                   const c = d.masuk.code; const cP = d.pulang.code; const tP = d.pulang.time; const tM = d.masuk.time;
 
-                  // FIX: Force On Time / Late Logic
                   let isLate = ['t', 'tx'].includes(c);
                   if (tM) {
                       const mTimeVal = timeToMinutes(tM);
@@ -871,7 +877,6 @@
                       detailedStats.telat.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Telat (${tM||'-'})`});
                   } 
                   else if(['v', 'x', 't', 'tx'].includes(c)) { 
-                      // Count as present if code is present AND not late (after fix)
                       s.hadir++; dailyTrend[idx].hadir++; 
                       detailedStats.hadir.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Masuk: ${tM||'-'}`});
                   }
@@ -948,9 +953,7 @@
               if (time) {
                   const mTimeVal = timeToMinutes(time);
                   const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
-                  // FIX: Force Green if time exists and <= 08:00
                   if (mTimeVal <= limitVal && ['t','tx'].includes(c)) return 'status-hadir';
-                  // FIX: Force Yellow if time exists and > 08:00
                   if (mTimeVal > limitVal && ['v','x'].includes(c)) return 'status-telat';
               }
           }
@@ -1087,7 +1090,6 @@
       };
       window.closeModal = () => document.getElementById('detailModal').classList.add('hidden');
       
-      // [BARU] Fungsi Special Categories
       function renderSpecialCategories(data, mode) {
           let candidates = [];
           
