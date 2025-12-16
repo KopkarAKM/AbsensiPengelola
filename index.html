@@ -6,7 +6,6 @@
   <title>Dashboard Absensi Pro - Analytics & Report</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Library Markdown dihapus karena tidak ada fitur AI -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
   <style>
       body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
@@ -75,8 +74,6 @@
 
       <!-- Controls -->
       <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto items-center">
-         <!-- Tombol AI dihapus dari sini -->
-
          <!-- View Mode Toggle -->
          <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
              <button onclick="switchView('monthly')" id="btn-view-monthly" class="px-3 py-1.5 text-xs font-bold rounded-md shadow-sm bg-white text-blue-600 transition-all">Bulanan</button>
@@ -128,7 +125,6 @@
                 </div>
                 <div class="text-green-600 bg-green-50 p-1 rounded"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
             </div>
-            <!-- Menampilkan Total Kehadiran (Hadir + Telat) -->
             <div class="mt-2 pt-2 border-t border-slate-50 flex justify-between items-center">
                 <span class="text-[10px] text-slate-500 font-medium">Total Masuk: <b id="stat-total-hadir" class="text-slate-700">0</b></span>
                 <span class="text-[10px] text-green-600 opacity-0 group-hover:opacity-100 transition-opacity">Detail &rarr;</span>
@@ -186,7 +182,7 @@
         </div>
       </div>
 
-      <!-- Detail Table (Restored & Dynamic) -->
+      <!-- Detail Table -->
       <div id="detail-list-container" class="hidden bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden ring-1 ring-slate-900/5 animate-fade-in-down">
          <div class="bg-slate-50/50 px-6 py-4 border-b border-slate-100 flex justify-between items-center backdrop-blur-sm">
              <h3 class="font-bold text-slate-800 flex items-center gap-2">
@@ -211,10 +207,10 @@
          </div>
       </div>
 
-      <!-- Charts Section: Trend & Heatmap -->
+      <!-- Charts Section: Trend & Heatmap & Special Categories -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          <!-- Column 1: Trend Chart Only -->
+          <!-- Column 1: Trend Chart & Special Categories -->
           <div class="space-y-6 lg:col-span-1">
               <!-- Tren Kehadiran -->
               <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
@@ -224,6 +220,17 @@
                   </h3>
                   <div class="h-[200px] w-full">
                       <canvas id="chartTrend"></canvas>
+                  </div>
+              </div>
+
+              <!-- [BARU] Sorotan Karyawan -->
+              <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+                  <div class="flex justify-between items-center mb-4">
+                      <h3 class="font-bold text-slate-700 text-sm">🔍 Sorotan Karyawan</h3>
+                      <span class="text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full">Automated</span>
+                  </div>
+                  <div id="special-categories-list" class="space-y-3">
+                      <!-- Diisi oleh JS -->
                   </div>
               </div>
           </div>
@@ -279,7 +286,7 @@
     </div>
   </div>
 
-  <!-- Modal Detail Employee (Tanpa Fitur AI) -->
+  <!-- Modal Detail Employee -->
   <div id="detailModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
     <div class="fixed inset-0 z-10 overflow-y-auto">
@@ -345,8 +352,6 @@
           jamPulangNormal: '17:00:00'
       };
       
-      // API Key Removed for Safety
-
       let rawData = { masterEmp: [], historyMasuk: [], historyPulang: [] };
       let processedData = {};
       let availablePeriods = [];
@@ -399,7 +404,9 @@
 
       function parseMasterData(rows) { 
           if (!rows || rows.length < 2) return [];
-          return rows.slice(1).map(r => r[0]).filter(n => n && n !== 'Nama' && !n.startsWith('a00')); 
+          const names = rows.slice(1).map(r => r[0]).filter(n => n && n !== 'Nama' && !n.startsWith('a00')); 
+          const uniqueNames = [...new Set(names.map(n => String(n).trim()))];
+          return uniqueNames;
       }
 
       function parseRawData(rows, type) {
@@ -413,10 +420,12 @@
           
           dataRows.forEach(row => {
               const dateVal = row[2];
-              const name = row[nameIdx]; 
+              let name = row[nameIdx]; 
               const code = row[14]; 
               
               if (!dateVal || !name || name === 'Nama' || !code || name.startsWith('a00')) return; 
+              
+              name = String(name).trim();
 
               let year, month, day;
               if (typeof dateVal === 'string' && (dateVal.includes('-') || dateVal.includes('/'))) {
@@ -499,9 +508,8 @@
           else renderMonthlyDashboard(year);
       }
 
-      // Helper untuk konversi waktu ke menit
       function timeToMinutes(timeStr) {
-          if (!timeStr || typeof timeStr !== 'string') return 9999; // Return high value if invalid
+          if (!timeStr || typeof timeStr !== 'string') return 9999;
           const parts = timeStr.split(':');
           const hours = parseInt(parts[0]) || 0;
           const minutes = parseInt(parts[1]) || 0;
@@ -514,7 +522,7 @@
           badge.classList.remove('hidden');
           
           let summary = {}; 
-          const allEmployees = [...rawData.masterEmp];
+          const allEmployees = [...new Set(rawData.masterEmp)];
           allEmployees.forEach(n => { summary[n] = { nama: n, hadir: 0, telat: 0, izin: 0, alpa: 0, pulangCepat: 0, tidakPulang: 0, score: 0 }; });
 
           let monthlyTrend = Array(12).fill(0).map(() => ({ hadir:0, telat:0 }));
@@ -534,7 +542,6 @@
                           const tM = d.masuk ? d.masuk.time : null;
 
                           let isLate = ['t', 'tx'].includes(c);
-                          
                           if (tM) {
                               const mTimeVal = timeToMinutes(tM);
                               const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
@@ -592,7 +599,6 @@
           
           document.getElementById('stat-hadir').innerText = totalS.hadir;
           document.getElementById('stat-total-hadir').innerText = totalS.hadir + totalS.telat;
-          
           document.getElementById('stat-telat').innerText = totalS.telat;
           document.getElementById('stat-izin').innerText = totalS.izin;
           document.getElementById('stat-alpa').innerText = totalS.alpa;
@@ -601,6 +607,7 @@
 
           renderTrendChart(monthlyTrend, 12, ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des']);
           renderYearlyTable(currentYearlyData);
+          renderSpecialCategories(currentYearlyData, 'yearly');
       }
 
       function renderMonthlyDashboard(year) {
@@ -613,12 +620,12 @@
 
           const gridData = [];
           const daysInMonth = new Date(year, month, 0).getDate();
-          const allEmployees = [...rawData.masterEmp];
           
+          let allEmployeesSet = new Set(rawData.masterEmp);
           if(processedData[year] && processedData[year][month]) {
-              Object.keys(processedData[year][month]).forEach(n => { if(!allEmployees.includes(n)) allEmployees.push(n); });
+              Object.keys(processedData[year][month]).forEach(n => allEmployeesSet.add(n));
           }
-          allEmployees.sort();
+          const allEmployees = Array.from(allEmployeesSet).sort();
 
           allEmployees.forEach(name => {
               const empRow = { nama: name, days: [] };
@@ -644,6 +651,7 @@
           currentGridData = gridData;
           handleSearch(); 
           calculateAndRenderMonthlyStats(gridData, daysInMonth);
+          renderSpecialCategories(gridData, 'monthly');
       }
 
       function handleSearch() {
@@ -718,7 +726,6 @@
               html += `<td class="p-3 font-semibold text-slate-700 sticky left-0 bg-white group-hover:bg-blue-50/50 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] whitespace-nowrap">${emp.nama}</td>`;
               emp.days.forEach(d => {
                   const m = d.masuk; const p = d.pulang; 
-                  // FIX: Pass Time for Status Coloring
                   const cM = getStatusClass(m.code, 'Masuk', null, m.time);
                   const cP = getStatusClass(p.code, 'Pulang', m.code, p.time);
                   html += `<td class="p-0.5 border-l border-slate-100/50"><div onclick="openModal('${emp.nama}', ${d.day}, '${m.code||''}', 'Masuk', '${m.time||''}', '${m.loc||''}', '${m.photo||''}', '${m.jarak||''}')" class="heatmap-cell mx-auto ${cM}" title="Masuk: ${m.code || '-'}">${m.code ? m.code.toUpperCase() : ''}</div></td>`;
@@ -774,7 +781,6 @@
               emp.days.forEach((d, idx) => {
                   const c = d.masuk.code; const cP = d.pulang.code; const tP = d.pulang.time; const tM = d.masuk.time;
 
-                  // FIX: Force On Time / Late Logic
                   let isLate = ['t', 'tx'].includes(c);
                   if (tM) {
                       const mTimeVal = timeToMinutes(tM);
@@ -788,7 +794,6 @@
                       detailedStats.telat.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Telat (${tM||'-'})`});
                   } 
                   else if(['v', 'x', 't', 'tx'].includes(c)) { 
-                      // Count as present if code is present AND not late (after fix)
                       s.hadir++; dailyTrend[idx].hadir++; 
                       detailedStats.hadir.push({name: emp.nama, date: `${d.day} ${monthName}`, desc: `Masuk: ${tM||'-'}`});
                   }
@@ -865,9 +870,7 @@
               if (time) {
                   const mTimeVal = timeToMinutes(time);
                   const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
-                  // FIX: Force Green if time exists and <= 08:00
                   if (mTimeVal <= limitVal && ['t','tx'].includes(c)) return 'status-hadir';
-                  // FIX: Force Yellow if time exists and > 08:00
                   if (mTimeVal > limitVal && ['v','x'].includes(c)) return 'status-telat';
               }
           }
@@ -987,12 +990,6 @@
           document.getElementById('modal-jam').innerText = (jam && jam !== 'null') ? jam.substring(0,5) : '--:--';
           document.getElementById('modal-jarak').innerText = (jarak && jarak !== 'null') ? `${jarak} km` : '-';
           
-          selectedEmployeeName = n;
-          document.getElementById('ai-personal-result').classList.add('hidden');
-          document.getElementById('ai-personal-result').innerHTML = '';
-          document.getElementById('ai-personal-loading').classList.add('hidden');
-          document.getElementById('btn-personal-ai').classList.remove('hidden');
-
           const elMaps = document.getElementById('modal-maps-link');
           if(loc && loc !== 'null') { elMaps.href = `https://www.google.com/maps/search/?api=1&query=${loc.replace(/["]/g,'')}`; elMaps.classList.remove('hidden'); }
           else elMaps.classList.add('hidden');
@@ -1010,6 +1007,101 @@
       };
       window.closeModal = () => document.getElementById('detailModal').classList.add('hidden');
       
+      // [BARU] Fungsi Special Categories
+      function renderSpecialCategories(data, mode) {
+          let candidates = [];
+          
+          if (mode === 'yearly') {
+              // Data tahunan sudah memiliki total count di dalamnya
+              candidates = data.map(x => ({
+                  nama: x.nama,
+                  telat: x.telat,
+                  pulangCepat: x.pulangCepat,
+                  ghost: x.alpa + x.tidakPulang // Gabungan Alpha + Tidak Absen Pulang
+              }));
+          } else {
+              // Data bulanan perlu dihitung ulang per karyawan
+              candidates = data.map(emp => {
+                  let stats = { nama: emp.nama, telat: 0, pulangCepat: 0, ghost: 0 };
+                  emp.days.forEach(d => {
+                      const c = d.masuk.code;
+                      const mTime = d.masuk.time;
+                      const pTime = d.pulang.time;
+                      const cP = d.pulang.code;
+                      
+                      // Hitung Telat
+                      let isLate = ['t', 'tx'].includes(c);
+                      if (mTime) {
+                           const mTimeVal = timeToMinutes(mTime);
+                           const limitVal = timeToMinutes(CONFIG.jamMasukNormal);
+                           if (mTimeVal > limitVal) isLate = true;
+                      }
+                      if (isLate) stats.telat++;
+                      
+                      // Hitung Pulang Cepat
+                      if (cP && pTime) {
+                          const pTimeVal = timeToMinutes(pTime);
+                          const limitPVal = timeToMinutes(CONFIG.jamPulangNormal);
+                          if (pTimeVal < limitPVal) stats.pulangCepat++;
+                      }
+                      
+                      // Hitung Ghost (Alpha + No Checkout)
+                      // Logic: Masuk tapi tdk pulang OR Alpha Murni
+                      let isNoCheckout = (['v','t','x','tx'].includes(c)) && (!cP || cP === 'a');
+                      if (c === 'a' || isNoCheckout) {
+                          stats.ghost++;
+                      }
+                  });
+                  return stats;
+              });
+          }
+
+          // Cari Juara
+          if (!candidates.length) return;
+
+          // Helper find max
+          const getChampion = (prop) => {
+              let maxVal = -1;
+              let champ = { nama: '-', val: 0 };
+              
+              candidates.forEach(c => {
+                  if (c[prop] > maxVal) {
+                      maxVal = c[prop];
+                      champ = { nama: c.nama, val: c[prop] };
+                  }
+              });
+              // Hanya tampilkan jika count > 0
+              return maxVal > 0 ? champ : { nama: '-', val: 0 };
+          };
+
+          const lateComer = getChampion('telat');
+          const earlyLeaver = getChampion('pulangCepat');
+          const theGhost = getChampion('ghost');
+
+          // Render HTML
+          const container = document.getElementById('special-categories-list');
+          let html = '';
+
+          const createItem = (icon, title, name, count, colorClass) => `
+              <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
+                  <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 flex items-center justify-center rounded-full bg-white border border-slate-200 text-lg shadow-sm">${icon}</div>
+                      <div>
+                          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">${title}</p>
+                          <p class="text-sm font-bold text-slate-700 truncate max-w-[120px]" title="${name}">${name}</p>
+                      </div>
+                  </div>
+                  <div class="text-xs font-bold ${colorClass}">${count}x</div>
+              </div>
+          `;
+
+          html += createItem('🐢', 'The Late Comer', lateComer.nama, lateComer.val, 'text-yellow-600');
+          html += createItem('🏃', 'The Early Leaver', earlyLeaver.nama, earlyLeaver.val, 'text-orange-600');
+          html += createItem('👻', 'The Ghost', theGhost.nama, theGhost.val, 'text-slate-500');
+
+          container.innerHTML = html;
+      }
+
       document.addEventListener('DOMContentLoaded', initApp);
   </script>
 </body>
